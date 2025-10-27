@@ -1,11 +1,118 @@
-@startuml ExampleDiagram
-title Example UML Diagram
+@startuml MIB_UML
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
 
-actor User
-rectangle "System" {
-  usecase "Login" as UC1
-  usecase "Register" as UC2
+package "MYAGENT-MIB Structure" {
+
+  class "iso(1)" as iso
+  class "org(3)" as org
+  class "dod(6)" as dod
+  class "internet(1)" as internet
+  class "private(4)" as private
+  class "enterprises(1)" as enterprises
+  class "ZNMRG(28308)" as enterprise28308
+  class "myAgentMIB(1)" as myAgentMIB{
+    Last-updated: "20251027Z"
+    Organization: "Zaragoza Network Management Research Group"
+    Contact-info: "Email: enrique@example.com"
+    Description: "MIB module for monitoring CPU usage with notifications"
+    Revision: "20251027Z"
+    Description: "Initial version"
+  }
+
+  ' Subtrees
+  class "myAgentObjects(1)" as myAgentObjects
+  class "myAgentNotifications(2)" as myAgentNotifications{
+    Objects: 
+    • DateAndTime
+  }
+
+  ' Managed Objects
+  class "manager(1)" as manager {
+    OID: 1.3.6.1.4.1.28308.1.1
+    Type: DisplayString (SIZE 0..255)
+    Access: read-write
+    Description: "Name of network manager"
+  }
+
+  class "managerEmail(2)" as managerEmail {
+    OID: 1.3.6.1.4.1.28308.1.2
+    Type: DisplayString (SIZE 0..255)
+    Access: read-write
+    Description: "Email for notifications"
+  }
+
+  class "cpuUsage(3)" as cpuUsage {
+    OID: 1.3.6.1.4.1.28308.1.3
+    Type: Integer32 (0..100)
+    Units: percent
+    Access: read-only
+    Description: "Current CPU usage in %"
+  }
+
+  class "cpuThreshold(4)" as cpuThreshold {
+    OID: 1.3.6.1.4.1.28308.1.4
+    Type: Integer32 (0..100)
+    Units: percent
+    Access: read-write
+    Description: "CPU threshold for alerts in %"
+  }
+
+  ' Notification
+  class "cpuOverThresholdNotification(1)" as cpuOverThresholdNotification {
+    OID: 1.3.6.1.4.1.28308.2.1
+    Objects:
+    • cpuUsage
+    • cpuThreshold
+    • managerEmail
+    Description: "Generated when CPU usage exceeds threshold"
+    Status: current
+  }
+
+  ' Hierarchy relationships
+  iso --> org
+  org --> dod
+  dod --> internet
+  internet --> private
+  private --> enterprises
+  enterprises --> enterprise28308 : "1.3.6.1.4.1.28308"
+  enterprise28308 --> myAgentMIB : ".1"
+
+  myAgentMIB --> myAgentObjects : ".1"
+  myAgentMIB --> myAgentNotifications : ".2"
+
+  myAgentObjects --> manager : ".1"
+  myAgentObjects --> managerEmail : ".2"
+  myAgentObjects --> cpuUsage : ".3"
+  myAgentObjects --> cpuThreshold : ".4"
+
+  myAgentNotifications --> cpuOverThresholdNotification : ".1"
+
+  cpuOverThresholdNotification ..> cpuUsage : includes
+  cpuOverThresholdNotification ..> cpuThreshold : includes
+  cpuOverThresholdNotification ..> managerEmail : includes
+
 }
-User --> UC1
-User --> UC2
+
+note top of enterprise28308
+  **Enterprise Number: 28308**
+  Base OID: 1.3.6.1.4.1.28308
+end note
+
+note bottom of myAgentObjects
+  **Managed Objects Group**
+  4 scalar objects:
+  • manager (RW)
+  • managerEmail (RW)
+  • cpuUsage (RO)
+  • cpuThreshold (RW)
+end note
+
+note bottom of cpuOverThresholdNotification
+  **Triggered when:**
+  cpuUsage > cpuThreshold
+  **Actions:**
+  Sent via SNMP trap and email
+end note
+
 @enduml
