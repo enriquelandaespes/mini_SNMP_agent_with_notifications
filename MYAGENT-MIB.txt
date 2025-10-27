@@ -33,7 +33,7 @@ myAgentNotifications  OBJECT IDENTIFIER ::= { myAgentMIB 2 }
 -- Managed Objects
 
 manager OBJECT-TYPE
-    SYNTAX          DisplayString (SIZE (4..255))
+    SYNTAX          DisplayString (SIZE (1..255))
     MAX-ACCESS      read-write
     STATUS          current
     DESCRIPTION
