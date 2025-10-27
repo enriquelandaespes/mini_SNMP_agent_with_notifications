@@ -11,7 +11,4 @@ User --> UC2
 note right of UC1
   This use case allows a user to log into the system.
 end note
-note right of UC2
-  This use case allows a user to register a new account.
-end note
 @enduml
