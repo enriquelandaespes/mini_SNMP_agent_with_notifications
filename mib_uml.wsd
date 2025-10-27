@@ -14,7 +14,7 @@ package "MYAGENT-MIB Structure" {
   class "myAgentMIB(1)" as myAgentMIB{
     Last-updated: "20251027Z"
     Organization: "Zaragoza Network Management Research Group"
-    Contact-info: "Email: fakeunizar@gmail.com"
+    Contact-info: "Email: enriquelandaespes@gmail.com"
     Description: "MIB module for monitoring CPU usage with notifications"
     Revision: "20251027Z"
     Description: "Initial version"
