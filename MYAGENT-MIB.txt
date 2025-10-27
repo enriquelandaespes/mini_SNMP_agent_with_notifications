@@ -1,0 +1,103 @@
+MYAGENT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE, Integer32
+        FROM SNMPv2-SMI
+    DisplayString, DateAndTime
+        FROM SNMPv2-TC
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF;
+
+-- MODULE-IDENTITY
+
+myAgentMIB MODULE-IDENTITY
+    LAST-UPDATED    "202510270000Z"
+    ORGANIZATION    "Zaragoza Network Management Research Group"
+    CONTACT-INFO    
+        "Email: fakeunizar@gmail.com"
+    DESCRIPTION
+        "MIB module for monitoring CPU usage with notifications.
+         This MIB defines managed objects for system administrator 
+         information, CPU usage monitoring, and threshold-based 
+         notifications via SNMP traps and email."
+    REVISION        "202510270000Z"
+    DESCRIPTION
+        "Initial version of MYAGENT-MIB."
+    ::= { enterprises 28308 1 }
+
+-- Object subtrees
+
+myAgentObjects        OBJECT IDENTIFIER ::= { myAgentMIB 1 }
+myAgentNotifications  OBJECT IDENTIFIER ::= { myAgentMIB 2 }
+
+-- Managed Objects
+
+manager OBJECT-TYPE
+    SYNTAX          DisplayString (SIZE (4..255))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "Name of the network manager responsible for this system."
+    ::= { myAgentObjects 1 }
+
+managerEmail OBJECT-TYPE
+    SYNTAX          DisplayString (SIZE (4..255))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "Email address of the network manager. 
+         Notifications will be sent to this address when 
+         the CPU threshold is exceeded."
+    ::= { myAgentObjects 2 }
+
+cpuUsage OBJECT-TYPE
+    SYNTAX          Integer32 (0..100)
+    UNITS           "percent"
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+        "Current CPU usage percentage. 
+         This value is updated periodically by the agent 
+         (typically every 5 seconds) using system monitoring tools."
+    ::= { myAgentObjects 3 }
+
+cpuThreshold OBJECT-TYPE
+    SYNTAX          Integer32 (0..100)
+    UNITS           "percent"
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+        "CPU usage threshold percentage. 
+         When cpuUsage exceeds this threshold, the agent sends 
+         a cpuOverThresholdNotification trap and an email alert 
+         to the configured managerEmail address."
+    DEFVAL          { 80 }
+    ::= { myAgentObjects 4 }
+
+-- Notifications
+
+cpuOverThresholdNotification NOTIFICATION-TYPE
+    OBJECTS {
+        cpuUsage,
+        cpuThreshold,
+        managerEmail
+    }
+    STATUS          current
+    DESCRIPTION
+        "This notification is generated when the CPU usage 
+         (cpuUsage) exceeds the configured threshold (cpuThreshold).
+         
+         The notification includes:
+         - cpuUsage: current CPU usage percentage
+         - cpuThreshold: the threshold that was exceeded
+         - managerEmail: destination for email notification
+         - DateAndTime: timestamp of the event
+         
+         The notification is sent as an SNMP trap (v1 or v2c) 
+         and triggers an email to the manager address.
+         
+         Note: The notification is edge-triggered, meaning it is 
+         sent only when the threshold is crossed from below to above, 
+         not continuously while above threshold."
+    ::= { myAgentNotifications 1 }
+END

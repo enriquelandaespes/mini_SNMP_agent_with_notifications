@@ -14,7 +14,7 @@ package "MYAGENT-MIB Structure" {
   class "myAgentMIB(1)" as myAgentMIB{
     Last-updated: "20251027Z"
     Organization: "Zaragoza Network Management Research Group"
-    Contact-info: "Email: enrique@example.com"
+    Contact-info: "Email: fakeunizar@gmail.com"
     Description: "MIB module for monitoring CPU usage with notifications"
     Revision: "20251027Z"
     Description: "Initial version"
@@ -30,14 +30,14 @@ package "MYAGENT-MIB Structure" {
   ' Managed Objects
   class "manager(1)" as manager {
     OID: 1.3.6.1.4.1.28308.1.1.0
-    Type: DisplayString (SIZE 0..255)
+    Type: DisplayString (SIZE 4..255)
     Access: read-write
     Description: "Name of network manager"
   }
 
   class "managerEmail(2)" as managerEmail {
     OID: 1.3.6.1.4.1.28308.1.2.0
-    Type: DisplayString (SIZE 0..255)
+    Type: DisplayString (SIZE 4..255)
     Access: read-write
     Description: "Email for notifications"
   }
