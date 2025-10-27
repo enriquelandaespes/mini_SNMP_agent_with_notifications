@@ -8,4 +8,5 @@ rectangle "System" {
 }
 User --> UC1
 User --> UC2
+User-->UC1 : "Initiates login process"
 @enduml
