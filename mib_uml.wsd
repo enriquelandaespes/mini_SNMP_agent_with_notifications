@@ -29,21 +29,21 @@ package "MYAGENT-MIB Structure" {
 
   ' Managed Objects
   class "manager(1)" as manager {
-    OID: 1.3.6.1.4.1.28308.1.1
+    OID: 1.3.6.1.4.1.28308.1.1.0
     Type: DisplayString (SIZE 0..255)
     Access: read-write
     Description: "Name of network manager"
   }
 
   class "managerEmail(2)" as managerEmail {
-    OID: 1.3.6.1.4.1.28308.1.2
+    OID: 1.3.6.1.4.1.28308.1.2.0
     Type: DisplayString (SIZE 0..255)
     Access: read-write
     Description: "Email for notifications"
   }
 
   class "cpuUsage(3)" as cpuUsage {
-    OID: 1.3.6.1.4.1.28308.1.3
+    OID: 1.3.6.1.4.1.28308.1.3.0
     Type: Integer32 (0..100)
     Units: percent
     Access: read-only
@@ -51,7 +51,7 @@ package "MYAGENT-MIB Structure" {
   }
 
   class "cpuThreshold(4)" as cpuThreshold {
-    OID: 1.3.6.1.4.1.28308.1.4
+    OID: 1.3.6.1.4.1.28308.1.4.0
     Type: Integer32 (0..100)
     Units: percent
     Access: read-write
@@ -60,7 +60,7 @@ package "MYAGENT-MIB Structure" {
 
   ' Notification
   class "cpuOverThresholdNotification(1)" as cpuOverThresholdNotification {
-    OID: 1.3.6.1.4.1.28308.2.1
+    OID: 1.3.6.1.4.1.28308.2.1.0
     Objects:
     • cpuUsage
     • cpuThreshold
