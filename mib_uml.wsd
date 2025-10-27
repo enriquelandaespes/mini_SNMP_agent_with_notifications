@@ -1,3 +1,11 @@
 @startuml ExampleDiagram
 title Example UML Diagram
+
+actor User
+rectangle "System" {
+  usecase "Login" as UC1
+  usecase "Register" as UC2
+}
+User --> UC1
+User --> UC2
 @enduml
