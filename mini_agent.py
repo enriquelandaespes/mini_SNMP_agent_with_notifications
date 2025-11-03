@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-mini_agent.py - SNMP Agent FUNCIONAL con todas las versiones de pysnmp
+mini_agent.py - SNMP Agent compatible with pysnmp 7.x (Python 3.13)
 """
 
 import json
@@ -16,15 +16,16 @@ from pysnmp.entity import engine, config
 from pysnmp.entity.rfc3413 import cmdrsp, ntforg, context
 from pysnmp.carrier.asyncio.dgram import udp
 from pysnmp.proto.api import v2c
-from pysnmp import debug
 
-# ==================== Configuration ====================
+# Configuration
 JSON_FILE = "mib_state.json"
 AGENT_START = time.time()
 SMTP_SERVER = "localhost"
 SMTP_PORT = 1025
 
-# ==================== JSON Store ====================
+# ====================
+# JSON Store
+# ====================
 class JsonStore:
     def __init__(self, filepath):
         self.filepath = filepath
@@ -54,7 +55,7 @@ class JsonStore:
                     "access": "read-write",
                     "minlen": 4,
                     "maxlen": 255,
-                    "value": "fakeunizar@gmail.com"
+                    "value": "admin@example.com"
                 },
                 "cpuUsage": {
                     "oid": "1.3.6.1.4.1.28308.1.3.0",
@@ -159,8 +160,9 @@ class JsonStore:
             return v2c.Integer(int(value))
         return v2c.Null()
 
-
-# ==================== Command Responders ====================
+# ====================
+# Command Responders
+# ====================
 class JsonGet(cmdrsp.GetCommandResponder):
     def __init__(self, snmpEngine, snmpContext, store):
         cmdrsp.GetCommandResponder.__init__(self, snmpEngine, snmpContext)
@@ -169,17 +171,14 @@ class JsonGet(cmdrsp.GetCommandResponder):
     def handleMgmtOperation(self, snmpEngine, stateReference, contextName, PDU, acInfo):
         req = v2c.apiPDU.getVarBinds(PDU)
         rsp = []
-        
         for oid, _ in req:
             found, value = self.store.get_exact(tuple(oid))
             rsp.append((oid, value))
-        
         rspPDU = v2c.apiPDU.getResponse(PDU)
         v2c.apiPDU.setErrorStatus(rspPDU, 0)
         v2c.apiPDU.setErrorIndex(rspPDU, 0)
         v2c.apiPDU.setVarBinds(rspPDU, rsp)
         self.sendPdu(snmpEngine, stateReference, rspPDU)
-
 
 class JsonGetNext(cmdrsp.NextCommandResponder):
     def __init__(self, snmpEngine, snmpContext, store):
@@ -189,20 +188,17 @@ class JsonGetNext(cmdrsp.NextCommandResponder):
     def handleMgmtOperation(self, snmpEngine, stateReference, contextName, PDU, acInfo):
         req = v2c.apiPDU.getVarBinds(PDU)
         rsp = []
-        
         for oid, _ in req:
             ok, next_oid, val = self.store.get_next(tuple(oid))
             if ok:
                 rsp.append((v2c.ObjectIdentifier(next_oid), val))
             else:
                 rsp.append((oid, v2c.EndOfMibView()))
-        
         rspPDU = v2c.apiPDU.getResponse(PDU)
         v2c.apiPDU.setErrorStatus(rspPDU, 0)
         v2c.apiPDU.setErrorIndex(rspPDU, 0)
         v2c.apiPDU.setVarBinds(rspPDU, rsp)
         self.sendPdu(snmpEngine, stateReference, rspPDU)
-
 
 class JsonSet(cmdrsp.SetCommandResponder):
     def __init__(self, snmpEngine, snmpContext, store):
@@ -211,7 +207,6 @@ class JsonSet(cmdrsp.SetCommandResponder):
     
     def handleMgmtOperation(self, snmpEngine, stateReference, contextName, PDU, acInfo):
         req = v2c.apiPDU.getVarBinds(PDU)
-        
         for idx, (oid, val) in enumerate(req, start=1):
             errStatus, _ = self.store.validate_set(tuple(oid), val)
             if errStatus != 0:
@@ -221,30 +216,26 @@ class JsonSet(cmdrsp.SetCommandResponder):
                 v2c.apiPDU.setVarBinds(rspPDU, req)
                 self.sendPdu(snmpEngine, stateReference, rspPDU)
                 return
-        
         for oid, val in req:
             self.store.commit_set(tuple(oid), val)
-        
         rsp = []
         for oid, _ in req:
             found, value = self.store.get_exact(tuple(oid))
             rsp.append((oid, value))
-        
         rspPDU = v2c.apiPDU.getResponse(PDU)
         v2c.apiPDU.setErrorStatus(rspPDU, 0)
         v2c.apiPDU.setErrorIndex(rspPDU, 0)
         v2c.apiPDU.setVarBinds(rspPDU, rsp)
         self.sendPdu(snmpEngine, stateReference, rspPDU)
 
-
-# ==================== Trap Sender ====================
+# ====================
+# Notifications
+# ====================
 def send_trap(snmpEngine, store):
     ntfOrg = ntforg.NotificationOriginator()
-    
     cpu_val = store.model["scalars"]["cpuUsage"]["value"]
     threshold_val = store.model["scalars"]["cpuThreshold"]["value"]
     email_val = store.model["scalars"]["managerEmail"]["value"]
-    
     uptime_ticks = int((time.time() - AGENT_START) * 100)
     
     varBinds = [
@@ -256,121 +247,84 @@ def send_trap(snmpEngine, store):
     ]
     
     ntfOrg.sendVarBinds(snmpEngine, 'trap-target', None, '', varBinds)
-    
     print(f"[TRAP] CPU {cpu_val}% > threshold {threshold_val}%")
     send_email(email_val, cpu_val, threshold_val)
 
-
 def send_email(to_addr, cpu_val, threshold_val):
     try:
-        msg = MIMEText(
-            f"CPU Usage Alert!\n\n"
-            f"Current CPU: {cpu_val}%\n"
-            f"Threshold: {threshold_val}%\n"
-            f"Time: {time.strftime('%Y-%m-%d %H:%M:%S')}"
-        )
+        msg = MIMEText(f"CPU Alert!\nCurrent: {cpu_val}%\nThreshold: {threshold_val}%\nTime: {time.strftime('%Y-%m-%d %H:%M:%S')}")
         msg['Subject'] = f'CPU Alert: {cpu_val}%'
         msg['From'] = 'snmp-agent@localhost'
         msg['To'] = to_addr
-        
         with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=5) as smtp:
             smtp.send_message(msg)
-        
         print(f"[EMAIL] Sent to {to_addr}")
     except Exception as e:
         print(f"[EMAIL ERROR] {e}")
 
-
-# ==================== CPU Sampler ====================
+# ====================
+# CPU Sampler
+# ====================
 async def cpu_sampler(store, snmpEngine):
     psutil.cpu_percent(interval=None)
     last_over = False
-    
     while True:
         await asyncio.sleep(5)
-        
         cpu = round(psutil.cpu_percent(interval=None))
         cpu = max(0, min(100, cpu))
-        
         store.set_cpu_usage_internal(cpu)
-        
         threshold = int(store.model["scalars"]["cpuThreshold"]["value"])
         over = cpu > threshold
-        
         if over and not last_over:
             send_trap(snmpEngine, store)
-        
         last_over = over
         print(f"[CPU] {cpu}% (threshold: {threshold}%)")
 
-
-# ==================== Main ====================
+# ====================
+# Main - ADAPTED FOR PYSNMP 7.x
+# ====================
 def main():
     store = JsonStore(JSON_FILE)
     snmpEngine = engine.SnmpEngine()
-    
-    # Create context FIRST
     snmpContext = context.SnmpContext(snmpEngine)
     
-    # Transport
-    config.addTransport(
-        snmpEngine,
-        udp.domainName,
-        udp.UdpTransport().openServerMode(('0.0.0.0', 161))
-    )
+    # Transport - PYSNMP 7.x SYNTAX
+    config.add_transport(snmpEngine, udp.DOMAIN_NAME, udp.UdpTransport().open_server_mode(('0.0.0.0', 161)))
     
-    # Communities
-    config.addV1System(snmpEngine, 'public-area', 'public')
-    config.addV1System(snmpEngine, 'private-area', 'private')
+    # Communities - PYSNMP 7.x SYNTAX
+    config.add_v1_system(snmpEngine, 'public-area', 'public')
+    config.add_v1_system(snmpEngine, 'private-area', 'private')
     
-    # VACM
+    # VACM - PYSNMP 7.x SYNTAX
     for secModel in (1, 2):
-        config.addVacmUser(
-            snmpEngine, secModel, 'public-area', 'noAuthNoPriv',
-            readSubTree=(1,3,6,1)
-        )
-        config.addVacmUser(
-            snmpEngine, secModel, 'private-area', 'noAuthNoPriv',
-            readSubTree=(1,3,6,1),
-            writeSubTree=(1,3,6,1)
-        )
+        config.add_vacm_user(snmpEngine, secModel, 'public-area', 'noAuthNoPriv', readSubTree=(1,3,6,1))
+        config.add_vacm_user(snmpEngine, secModel, 'private-area', 'noAuthNoPriv', readSubTree=(1,3,6,1), writeSubTree=(1,3,6,1))
     
-    # Trap target
-    config.addTargetParams(snmpEngine, 'trap-target', 'public-area', 'noAuthNoPriv', 1)
-    config.addTargetAddr(
-        snmpEngine, 'trap-target',
-        udp.domainName, ('127.0.0.1', 162),
-        'trap-target'
-    )
-    config.addNotificationTarget(
-        snmpEngine, 'trap-target', 'trap-target', 'trap'
-    )
+    # Trap target - PYSNMP 7.x SYNTAX
+    config.add_target_params(snmpEngine, 'trap-target', 'public-area', 'noAuthNoPriv', 1)
+    config.add_target_addr(snmpEngine, 'trap-target', udp.DOMAIN_NAME, ('127.0.0.1', 162), 'trap-target')
+    config.add_notification_target(snmpEngine, 'trap-target', 'trap-target', 'trap')
     
-    # Responders - CON snmpContext creado ANTES
+    # Responders
     JsonGet(snmpEngine, snmpContext, store)
     JsonGetNext(snmpEngine, snmpContext, store)
     JsonSet(snmpEngine, snmpContext, store)
     
-    print("=" * 50)
+    print("="*50)
     print("SNMP Agent running on UDP/161")
     print(f"Communities: public (RO), private (RW)")
     print(f"Base OID: {store.model['baseoid']}")
-    print("=" * 50)
+    print("="*50)
     
     # CPU monitor
     loop = asyncio.get_event_loop()
     loop.create_task(cpu_sampler(store, snmpEngine))
     
-    # Run dispatcher
-    snmpEngine.transportDispatcher.jobStarted(1)
-    
+    # Run - PYSNMP 7.x uses asyncio integration
     try:
-        snmpEngine.transportDispatcher.runDispatcher()
+        loop.run_forever()
     except KeyboardInterrupt:
         print("\nShutdown...")
-    finally:
-        snmpEngine.transportDispatcher.closeDispatcher()
-
 
 if __name__ == '__main__':
     main()
