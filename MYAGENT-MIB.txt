@@ -80,7 +80,8 @@ cpuOverThresholdNotification NOTIFICATION-TYPE
     OBJECTS {
         cpuUsage,
         cpuThreshold,
-        managerEmail
+        managerEmail,
+        DateAndTime
     }
     STATUS          current
     DESCRIPTION
@@ -100,4 +101,16 @@ cpuOverThresholdNotification NOTIFICATION-TYPE
          sent only when the threshold is crossed from below to above, 
          not continuously while above threshold."
     ::= { myAgentNotifications 1}
+
+-- Conformance Information
+
+myAgentConformance    OBJECT IDENTIFIER ::= { myAgentMIB 3 }
+
+myAgentGroup OBJECT-GROUP
+    OBJECTS { manager, managerEmail, cpuUsage, cpuThreshold }
+    STATUS  current
+    DESCRIPTION
+        "A collection of objects for the custom SNMP agent."
+    ::= { myAgentConformance 1 }
+
 END
