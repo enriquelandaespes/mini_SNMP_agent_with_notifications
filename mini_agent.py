@@ -19,8 +19,10 @@ from pysnmp.proto.api import v2c
 # Config constants
 JSON_FILE = "mib_state.json"
 AGENT_START = time.time()
-SMTP_SERVER = "localhost"
-SMTP_PORT = 1025
+
+# Gmail SMTP configuration
+GMAIL_USER = "fakeunizar@gmail.com"  # <-- CAMBIA ESTO
+GMAIL_PASSWORD = "ldwb lraj msnw smoo"  # <-- App password de Gmail (no tu contraseña normal)
 
 # JSON Store class - maintains MIB data
 class JsonStore:
@@ -43,7 +45,7 @@ class JsonStore:
                 "manager": {"oid": "1.3.6.1.4.1.28308.1.1.0", "type": "DisplayString", 
                            "access": "read-write", "value": "manager"},
                 "managerEmail": {"oid": "1.3.6.1.4.1.28308.1.2.0", "type": "DisplayString",
-                                "access": "read-write", "value": "admin@example.com"},
+                                "access": "read-write", "value": "871135@unizar.es"},
                 "cpuUsage": {"oid": "1.3.6.1.4.1.28308.1.3.0", "type": "Integer32",
                             "access": "read-only", "value": 10},
                 "cpuThreshold": {"oid": "1.3.6.1.4.1.28308.1.4.0", "type": "Integer32",
@@ -172,16 +174,21 @@ def send_trap(snmpEngine, store):
     print(f"📡 TRAP enviada: CPU {cpu_val}% > umbral {threshold_val}%")
     send_email(email_val, cpu_val, threshold_val)
 
-# Send email alert
+# Send email via Gmail SMTP
 def send_email(to_addr, cpu_val, threshold_val):
     try:
+        # Create message
         msg = MIMEText(f"Alerta de CPU!\n\nCPU actual: {cpu_val}%\nUmbral: {threshold_val}%\nHora: {time.strftime('%Y-%m-%d %H:%M:%S')}")
         msg['Subject'] = f'Alerta CPU: {cpu_val}%'
-        msg['From'] = 'agente-snmp@localhost'
+        msg['From'] = GMAIL_USER
         msg['To'] = to_addr
-        with smtplib.SMTP(SMTP_SERVER, SMTP_PORT, timeout=5) as smtp:
+        
+        # Connect to Gmail SMTP server with SSL
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465, timeout=10) as smtp:
+            smtp.login(GMAIL_USER, GMAIL_PASSWORD)
             smtp.send_message(msg)
-        print(f"✉️  Email enviado a {to_addr}")
+        
+        print(f"✉️  Email enviado a {to_addr} vía Gmail")
     except Exception as e:
         print(f"❌ Error al enviar email: {e}")
 
@@ -201,7 +208,6 @@ async def cpu_sampler(store, snmpEngine):
         print(f"🖥️  CPU: {cpu}% | Umbral: {threshold}% | {'⚠️ SUPERADO' if over else '✅ OK'}")
 
 # Main function
-# Main function
 def main():
     store = JsonStore(JSON_FILE)
     snmpEngine = engine.SnmpEngine()
@@ -219,14 +225,9 @@ def main():
         config.addVacmUser(snmpEngine, secModel, 'public-area', 'noAuthNoPriv', readSubTree=(1,3,6,1))
         config.addVacmUser(snmpEngine, secModel, 'private-area', 'noAuthNoPriv', readSubTree=(1,3,6,1), writeSubTree=(1,3,6,1))
     
-    # Setup trap target - CORREGIDO
+    # Setup trap target
     config.addTargetParams(snmpEngine, 'trap-target', 'public-area', 'noAuthNoPriv', 1)
-    config.addTargetAddr(
-        snmpEngine, 'trap-target',
-        udp.domainName, ('127.0.0.1', 162),
-        'trap-target',
-        tagList='trap'  # <-- ESTO FALTABA
-    )
+    config.addTargetAddr(snmpEngine, 'trap-target', udp.domainName, ('127.0.0.1', 162), 'trap-target', tagList='trap')
     config.addNotificationTarget(snmpEngine, 'trap-target', 'trap-target', 'trap')
     
     # Register responders
@@ -239,6 +240,7 @@ def main():
     print("🔑 Comunidades: public (RO), private (RW)")
     print(f"🆔 OID base: {store.model['baseoid']}")
     print("📊 Muestreo de CPU cada 5 segundos")
+    print("📧 Emails vía Gmail SMTP")
     print("⚡ Presiona Ctrl+C para detener")
     print("="*60)
     
@@ -256,7 +258,6 @@ def main():
         print("💾 Estado guardado en mib_state.json")
     finally:
         snmpEngine.transportDispatcher.closeDispatcher()
-
 
 if __name__ == '__main__':
     main()
