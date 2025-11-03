@@ -14,7 +14,7 @@ myAgentMIB MODULE-IDENTITY
     LAST-UPDATED    "202510270000Z"
     ORGANIZATION    "Zaragoza Network Management Research Group"
     CONTACT-INFO    
-        "Email: fakeunizar@gmail.com"
+        "Email: 871135@unizar.es"
     DESCRIPTION
         "MIB module for monitoring CPU usage with notifications.
          This MIB defines managed objects for system administrator 
