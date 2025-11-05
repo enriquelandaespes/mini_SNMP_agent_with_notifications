@@ -16,7 +16,7 @@ from pysnmp.entity import engine, config
 from pysnmp.entity.rfc3413 import cmdrsp, ntforg, context
 from pysnmp.carrier.asyncio.dgram import udp
 from pysnmp.proto.api import v2c
-import numbers
+
 # Config constants
 JSON_FILE = "mib_state.json"
 AGENT_START = time.time()
