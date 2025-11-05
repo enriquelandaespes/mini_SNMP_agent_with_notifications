@@ -4,7 +4,7 @@ mini_agent.py - SNMP Agent with JSON storage and notifications
 Compatible with PySNMP 7.1.4 - WORKING VERSION
 Student project for Network Management course
 """
-import sys
+
 import json
 import os
 import time
@@ -16,7 +16,7 @@ from pysnmp.entity import engine, config
 from pysnmp.entity.rfc3413 import cmdrsp, ntforg, context
 from pysnmp.carrier.asyncio.dgram import udp
 from pysnmp.proto.api import v2c
-import asyncio
+import sys
 # Config constants
 JSON_FILE = "mib_state.json"
 AGENT_START = time.time()
