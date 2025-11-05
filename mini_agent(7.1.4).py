@@ -29,11 +29,11 @@ GMAIL_PASSWORD = "ldwb lraj msnw smoo"
 class JsonStore:
     def __init__(self, filepath):
         self.filepath = filepath
-        self.model = self._load()
-        self.oid_map = self._build_oid_map()
+        self.model = self.load()
+        self.oid_map = self.build_oid_map()
         self.sorted_oids = sorted(self.oid_map.keys())
     
-    def _load(self):
+    def load(self):
         if os.path.exists(self.filepath):
             with open(self.filepath, 'r') as f:
                 return json.load(f)
@@ -52,11 +52,11 @@ class JsonStore:
             }
         }
     
-    def _save(self, data=None):
+    def save(self, data=None):
         with open(self.filepath, 'w') as f:
             json.dump(data or self.model, f, indent=2)
     
-    def _build_oid_map(self):
+    def build_oid_map(self):
         return {tuple(int(x) for x in obj["oid"].split('.')): key 
                 for key, obj in self.model["scalars"].items()}
     
@@ -87,11 +87,11 @@ class JsonStore:
     def commit_set(self, oid_tuple, snmp_val):
         key = self.oid_map[oid_tuple]
         self.model["scalars"][key]["value"] = str(snmp_val) if self.model["scalars"][key]["type"] == "DisplayString" else int(snmp_val)
-        self._save()
+        self.save()
     
     def set_cpu_usage_internal(self, cpu_value):
         self.model["scalars"]["cpuUsage"]["value"] = cpu_value
-        self._save()
+        self.save()
 
 
 # JSON responders - handle SNMP operations (FIXED for PySNMP 7.x)
@@ -253,7 +253,7 @@ def main():
         print("\n\n🛑 Apagando agente...")
         stop_event.set()
         cpu_thread.join(timeout=2)
-        store._save()
+        store.save()
         print("💾 Estado guardado en mib_state.json")
     finally:
         snmpEngine.transportDispatcher.closeDispatcher()
