@@ -22,9 +22,8 @@ JSON_FILE = "mib_state.json"
 AGENT_START = time.time()
 
 # Gmail SMTP configuration
-GMAIL_USER = "fakeunizar@gmail.com"  # <-- CAMBIA ESTO
-GMAIL_PASSWORD = "ldwb lraj msnw smoo"  # <-- App password de Gmail
-
+GMAIL_USER = "fakeunizar@gmail.com"  
+GMAIL_PASSWORD = "ldwb lraj msnw smoo"  
 
 # JSON Store class - maintains MIB data
 class JsonStore:
@@ -102,7 +101,6 @@ class JsonGet(cmdrsp.GetCommandResponder):
         self.store = store
     
     def handleMgmtOperation(self, snmpEngine, stateReference, contextName, PDU):
-        # NOTE: acInfo parameter removed in PySNMP 7.x
         req = v2c.apiPDU.getVarBinds(PDU)
         rsp = [(oid, self.store.get_exact(tuple(oid))[1]) for oid, _ in req]
         rspPDU = v2c.apiPDU.getResponse(PDU)
@@ -117,7 +115,6 @@ class JsonGetNext(cmdrsp.NextCommandResponder):
         self.store = store
     
     def handleMgmtOperation(self, snmpEngine, stateReference, contextName, PDU):
-        # NOTE: acInfo parameter removed in PySNMP 7.x
         req = v2c.apiPDU.getVarBinds(PDU)
         rsp = []
         for oid, _ in req:
@@ -134,7 +131,6 @@ class JsonSet(cmdrsp.SetCommandResponder):
         self.store = store
     
     def handleMgmtOperation(self, snmpEngine, stateReference, contextName, PDU):
-        # NOTE: acInfo parameter removed in PySNMP 7.x
         req = v2c.apiPDU.getVarBinds(PDU)
         for idx, (oid, val) in enumerate(req, start=1):
             errStatus, _ = self.store.validate_set(tuple(oid), val)
