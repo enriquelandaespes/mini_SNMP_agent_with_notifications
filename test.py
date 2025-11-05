@@ -15,7 +15,8 @@ COMMUNITY_RO = "public"
 COMMUNITY_RW = "private"
 BASE_OID = "1.3.6.1.4.1.28308.1"
 
-# Object OIDs
+# Object OIDs (CORREGIDOS)
+# Ahora generan: ...28308.1.1.0, ...28308.1.2.0, etc.
 OID_MANAGER = f"{BASE_OID}.1.1.0"
 OID_EMAIL = f"{BASE_OID}.1.2.0"
 OID_CPU_USAGE = f"{BASE_OID}.1.3.0"
@@ -37,7 +38,6 @@ def pause_for_next_test(test_name):
 def run_snmp_command(cmd):
     """Ejecuta un comando SNMP y devuelve el resultado"""
     try:
-        # Usamos shell=True para ejecutar comandos de texto como "snmpget -v2c..."
         result = subprocess.run(
             cmd, 
             shell=True, 
@@ -54,16 +54,18 @@ def run_snmp_command(cmd):
         return False, "", str(e)
 
 def get_snmp_value(oid):
-    """Función helper para obtener solo el valor de un OID"""
+    """Función helper para obtener solo el valor de un OID (CORREGIDA)"""
     cmd = f"snmpget -v2c -c {COMMUNITY_RO} {AGENT_IP} {oid}"
     success, output, error = run_snmp_command(cmd)
     
-    if success and output and "=" in output:
+    # La salida de snmpget es: OID::... = TIPO: Valor
+    # Ej: SNMPv2-SMI::enterprises.28308.1.1.0 = STRING: "Ruben"
+    # Ej: SNMPv2-SMI::enterprises.28308.1.4.0 = INTEGER: 80
+    
+    if success and output and ":" in output:
         try:
-            # El valor está después del primer ':' o '='
-            # Ej: MY-MIB::manager.0 = STRING: "manager"
-            # Ej: MY-MIB::cpuThreshold.0 = INTEGER: 80
-            value_part = output.split(":", 1)[1].strip()
+            # Dividimos por el ÚLTIMO ':' para aislar el valor
+            value_part = output.rsplit(":", 1)[1].strip()
             
             # Quita las comillas si es un STRING
             if value_part.startswith('"') and value_part.endswith('"'):
@@ -85,7 +87,7 @@ def check_snmp_tools():
     print_header("Verificando herramientas SNMP")
     
     SNMPGET = "C:\\usr\\bin\\snmpget.exe"  # <-- Ruta completa
-    cmd = [SNMPGET, "-v2c", "-c", "public", AGENT_IP, f"{BASE_OID}.1.0"]
+    cmd = [SNMPGET, "-v2c", "-c", "public", AGENT_IP, f"{BASE_OID}.1.1.0"]
     success, output, error = run_snmp_command(cmd)
     
     if success or "NET-SNMP" in output or "NET-SNMP" in error:
@@ -137,8 +139,8 @@ def test_getnext_operations():
         success, output, error = run_snmp_command(cmd)
         
         if success and output and "End of MIB" not in output:
-            # Extrae el OID de la respuesta para el siguiente salto
             try:
+                # Extrae el OID de la respuesta para el siguiente salto
                 current_oid = output.split("=")[0].strip().split()[-1]
                 print(f"  ✓ Paso {i+1}: {output}")
                 objects_found.append(output)
@@ -309,7 +311,7 @@ def main():
         sys.exit(1)
     
     print(f"\n⚠ IMPORTANTE: Asegúrate de que el agente está corriendo en {AGENT_IP}:")
-    print(f"  python mini_agent.py")
+    print(f"  python mini_agent(7.1.4).py")
     
     # --- 3. Guardar Valores Originales ---
     print_header("Guardando estado original del agente (para revertir)")

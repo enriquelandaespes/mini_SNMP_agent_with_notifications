@@ -554,7 +554,7 @@ supera el umbral definido.
         from email.mime.text import MIMEText as MIMETextPart
         
         msg = MIMEMultipart('alternative')
-        msg['Subject'] = f'⚠️ Alerta CPU: {cpu_val}% - !Umbral superado!'
+        msg['Subject'] = f'⚠️ Alerta CPU: {cpu_val}% (Umbral: {threshold_val}%)'
         msg['From'] = GMAIL_USER
         msg['To'] = to_addr
         
