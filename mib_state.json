@@ -1,24 +1,24 @@
 {
-  "baseoid": "1.3.6.1.4.1.28308.1",
+  "baseoid": "1.3.6.1.4.1.28308.1.1",
   "scalars": {
     "manager": {
-      "oid": "1.3.6.1.4.1.28308.1.1.0",
+      "oid": "1.3.6.1.4.1.28308.1.1.1.0",
       "type": "DisplayString",
       "access": "read-write",
       "minlen": 1,
       "maxlen": 255,
-      "value": "Enrique y Ruben"
+      "value": "Test Manager"
     },
     "managerEmail": {
-      "oid": "1.3.6.1.4.1.28308.1.2.0",
+      "oid": "1.3.6.1.4.1.28308.1.1.2.0",
       "type": "DisplayString",
       "access": "read-write",
       "minlen": 4,
       "maxlen": 255,
-      "value": "871135@unizar.es"
+      "value": ":enterprises.28308.1.1.2.0 = STRING: test@unizar.es"
     },
     "cpuUsage": {
-      "oid": "1.3.6.1.4.1.28308.1.3.0",
+      "oid": "1.3.6.1.4.1.28308.1.1.3.0",
       "type": "Integer32",
       "access": "read-only",
       "minval": 0,
@@ -26,12 +26,12 @@
       "value": 4
     },
     "cpuThreshold": {
-      "oid": "1.3.6.1.4.1.28308.1.4.0",
+      "oid": "1.3.6.1.4.1.28308.1.1.4.0",
       "type": "Integer32",
       "access": "read-write",
       "minval": 0,
       "maxval": 100,
-      "value": 80
+      "value": 70
     }
   }
 }
