@@ -1,8 +1,8 @@
 """
-mini_agent.py - SNMP Agent with JSON storage and notifications
-Compatible with PySNMP 7.1.4 - WORKING VERSION with detailed logging
-Student project for Network Management course
+Mini SNMP Agent with JSON MIB storage, CPU monitoring, traps, and email notifications.
+This agent works on pysnmp 7.1.4
 """
+
 
 import json
 import os
@@ -15,48 +15,54 @@ from pysnmp.entity import engine, config
 from pysnmp.entity.rfc3413 import cmdrsp, ntforg, context
 from pysnmp.carrier.asyncio.dgram import udp
 from pysnmp.proto.api import v2c
+from pysnmp.proto import rfc3411  # Para consultar VACM
+from pysnmp.proto import api
 
-# Config constants
+
+# Constantes iniciales
 JSON_FILE = "mib_state.json"
 AGENT_START = time.time()
 
-# Gmail SMTP configuration
+
+# Configuración de Gmail para envío de correos(Es el que envía a el correo del manager)
 GMAIL_USER = "fakeunizar@gmail.com"  
 GMAIL_PASSWORD = "ldwb lraj msnw smoo"  
 
 
-# JSON Store class - maintains MIB data
+
+# JSONStore maneja la MIB almacenada en un archivo JSON, guardando y cargando el estado de las variables.
 class JsonStore:
-    def __init__(self, filepath):
-        self.filepath = filepath
-        self.model = self._load()
-        self.oid_map = self._build_oid_map()
-        self.sorted_oids = sorted(self.oid_map.keys())
+    def __init__(self, filepath): # Constructor de la clase JsonStore
+        self.filepath = filepath # Ruta al archivo JSON
+        self.model = self.load() # Cargar modelo desde JSON
+        self.oid_map = self.build_oid_map() # Mapeo OID a nombres de variables
+        self.sorted_oids = sorted(self.oid_map.keys()) # OIDs ordenados para get-next
+        self.snmpEngine = None  # Se establecerá desde main()
     
-    def _load(self):
+    def load(self): # Cargar el modelo desde el archivo JSON o usar valores predeterminados
         if os.path.exists(self.filepath):
             with open(self.filepath, 'r') as f:
                 return json.load(f)
         
-        return {
-            "baseoid": "1.3.6.1.4.1.28308.1",
+        return { # Modelo por defecto si no existe el archivo JSON
+            "baseoid": "1.3.6.1.4.1.28308.1.1",
             "scalars": {
-                "manager": {"oid": "1.3.6.1.4.1.28308.1.1.0", "type": "DisplayString", 
+                "manager": {"oid": "1.3.6.1.4.1.28308.1.1.1.0", "type": "DisplayString", 
                            "access": "read-write", "value": "manager"},
-                "managerEmail": {"oid": "1.3.6.1.4.1.28308.1.2.0", "type": "DisplayString",
+                "managerEmail": {"oid": "1.3.6.1.4.1.28308.1.1.2.0", "type": "DisplayString",
                                 "access": "read-write", "value": "871135@unizar.es"},
-                "cpuUsage": {"oid": "1.3.6.1.4.1.28308.1.3.0", "type": "Integer32",
+                "cpuUsage": {"oid": "1.3.6.1.4.1.28308.1.1.3.0", "type": "Integer32",
                             "access": "read-only", "value": 10},
-                "cpuThreshold": {"oid": "1.3.6.1.4.1.28308.1.4.0", "type": "Integer32",
+                "cpuThreshold": {"oid": "1.3.6.1.4.1.28308.1.1.4.0", "type": "Integer32",
                                 "access": "read-write", "value": 80}
             }
         }
     
-    def _save(self, data=None):
+    def save(self, data=None):
         with open(self.filepath, 'w') as f:
             json.dump(data or self.model, f, indent=2)
     
-    def _build_oid_map(self):
+    def build_oid_map(self):
         return {tuple(int(x) for x in obj["oid"].split('.')): key 
                 for key, obj in self.model["scalars"].items()}
     
@@ -74,27 +80,99 @@ class JsonStore:
                 return True, candidate, self.get_exact(candidate)[1]
         return False, None, None
     
-    def validate_set(self, oid_tuple, snmp_val):
+    def validate_set(self, oid_tuple, snmp_val, stateReference=None, contextName=''):
+        """
+        Validación completa que incluye:
+        1. Verificación de permisos de comunidad
+        2. Existencia del OID
+        3. Permisos de acceso del objeto (read-only vs read-write)
+        4. Tipo de dato correcto
+        """
+        
+        # 1. VERIFICAR PERMISOS DE COMUNIDAD
+        community = 'unknown'
+        
+        if self.snmpEngine and stateReference:
+            try:
+                # En PySNMP 7.x, stateReference es un int, buscar en observer
+                cache = self.snmpEngine.observer.getExecutionContext('rfc3412.receiveMessage:request')
+                
+                if cache and 'securityName' in cache:
+                    securityName = cache['securityName']
+                    
+                    # securityName es un objeto SnmpAdminString, extraer el valor
+                    if hasattr(securityName, 'prettyPrint'):
+                        community = securityName.prettyPrint()
+                    elif hasattr(securityName, '__str__'):
+                        community = str(securityName)
+                    else:
+                        # Último recurso: acceder directamente al payload
+                        community = str(securityName)
+                    
+                    print(f"   🔍 Comunidad detectada: '{community}'")
+                
+                # También intentar con communityName directamente
+                if community == 'unknown' and 'communityName' in cache:
+                    communityName = cache.get('communityName', b'')
+                    community = communityName.decode('utf-8') if communityName else 'unknown'
+                    print(f"   🔍 Comunidad (communityName): '{community}'")
+            
+            except Exception as e:
+                print(f"   ⚠️  Error extrayendo comunidad: {e}")
+        
+        print(f"   🔑 Comunidad FINAL: '{community}'")
+        
+        # Verificar si la comunidad tiene permisos de escritura
+        readonly_communities = ['public', 'public-area']
+        
+        if community in readonly_communities:
+            print(f"   🔒 BLOQUEADO: Comunidad '{community}' es de solo lectura")
+            return 16, 1  # authorizationError
+        
+        if community == 'unknown':
+            # CRÍTICO: Denegar si no podemos verificar la comunidad
+            print(f"   🔒 BLOQUEADO: No se pudo verificar comunidad, denegando por seguridad")
+            return 16, 1  # authorizationError
+        
+        print(f"   ✅ PERMITIDO: Comunidad '{community}' autorizada para escritura")
+        
+        # 2. Verificar que el OID existe
         key = self.oid_map.get(oid_tuple)
-        if not key or self.model["scalars"][key]["access"] == "read-only":
+        if not key:
+            return 18, 1
+        
+        obj = self.model["scalars"][key]
+        
+        # 3. Verificar permisos de acceso del objeto
+        if obj["access"] == "read-only":
             return 17, 1
-        if self.model["scalars"][key]["type"] == "DisplayString" and not isinstance(snmp_val, v2c.OctetString):
+        
+        # 4. Verificar tipo de dato
+        if obj["type"] == "DisplayString" and not isinstance(snmp_val, v2c.OctetString):
             return 7, 1
-        if self.model["scalars"][key]["type"] == "Integer32" and not isinstance(snmp_val, v2c.Integer):
+        if obj["type"] == "Integer32" and not isinstance(snmp_val, v2c.Integer):
             return 7, 1
+        
         return 0, 0
+
+
+
+        
+
+
     
     def commit_set(self, oid_tuple, snmp_val):
         key = self.oid_map[oid_tuple]
         old_value = self.model["scalars"][key]["value"]
         new_value = str(snmp_val) if self.model["scalars"][key]["type"] == "DisplayString" else int(snmp_val)
         self.model["scalars"][key]["value"] = new_value
-        self._save()
+        self.save()
         return old_value, new_value
     
     def set_cpu_usage_internal(self, cpu_value):
         self.model["scalars"]["cpuUsage"]["value"] = cpu_value
-        self._save()
+        self.save()
+
 
 
 def oid_to_string(oid):
@@ -104,9 +182,11 @@ def oid_to_string(oid):
     return '.'.join(str(x) for x in oid)
 
 
+
 def get_timestamp():
     """Get formatted timestamp"""
     return time.strftime('%Y-%m-%d %H:%M:%S')
+
 
 
 # JSON responders - handle SNMP operations with detailed logging
@@ -128,7 +208,6 @@ class JsonGet(cmdrsp.GetCommandResponder):
             ok, val = self.store.get_exact(tuple(oid))
             
             if ok:
-                # Find the key name
                 key = self.store.oid_map.get(tuple(oid), "unknown")
                 value_str = str(val) if hasattr(val, '__str__') else repr(val)
                 print(f"   OID: {oid_str}")
@@ -148,6 +227,7 @@ class JsonGet(cmdrsp.GetCommandResponder):
         
         print(f"   📤 Respuesta enviada correctamente")
         print(f"{'='*70}\n")
+
 
 
 class JsonGetNext(cmdrsp.NextCommandResponder):
@@ -190,6 +270,7 @@ class JsonGetNext(cmdrsp.NextCommandResponder):
         print(f"{'='*70}\n")
 
 
+
 class JsonSet(cmdrsp.SetCommandResponder):
     def __init__(self, snmpEngine, snmpContext, store):
         super().__init__(snmpEngine, snmpContext)
@@ -206,14 +287,18 @@ class JsonSet(cmdrsp.SetCommandResponder):
         for idx, (oid, val) in enumerate(req, start=1):
             oid_str = oid_to_string(oid)
             key = self.store.oid_map.get(tuple(oid), "unknown")
-            errStatus, _ = self.store.validate_set(tuple(oid), val)
+            
+            # Pasar stateReference para que validate_set pueda verificar comunidad
+            errStatus, _ = self.store.validate_set(tuple(oid), val, stateReference, contextName)
             
             print(f"   OID: {oid_str}")
             print(f"   Variable: {key}")
             print(f"   Nuevo valor: {val}")
             
             if errStatus:
-                if errStatus == 17:
+                if errStatus == 16:
+                    print(f"   ❌ ERROR: Sin autorización (authorizationError)")
+                elif errStatus == 17:
                     print(f"   ❌ ERROR: Variable de solo lectura (notWritable)")
                 elif errStatus == 7:
                     print(f"   ❌ ERROR: Tipo incorrecto (wrongType)")
@@ -247,6 +332,7 @@ class JsonSet(cmdrsp.SetCommandResponder):
         print(f"{'='*70}\n")
 
 
+
 def send_trap(snmpEngine, store):
     ntfOrg = ntforg.NotificationOriginator()
     cpu_val = store.model["scalars"]["cpuUsage"]["value"]
@@ -257,15 +343,14 @@ def send_trap(snmpEngine, store):
     print(f"📡 ENVIANDO TRAP [{get_timestamp()}]")
     print(f"{'='*70}")
     print(f"   Razón: CPU {cpu_val}% > Umbral {threshold_val}%")
-    print(f"   Destino: 127.0.0.1:162")
     print(f"   Email destino: {email_val}")
     
     varBinds = [
         (v2c.ObjectIdentifier((1,3,6,1,2,1,1,3,0)), v2c.TimeTicks(int((time.time()-AGENT_START)*100))),
-        (v2c.ObjectIdentifier((1,3,6,1,6,3,1,1,4,1,0)), v2c.ObjectIdentifier((1,3,6,1,4,1,28308,2,1))),
-        (v2c.ObjectIdentifier((1,3,6,1,4,1,28308,1,3,0)), v2c.Integer(cpu_val)),
-        (v2c.ObjectIdentifier((1,3,6,1,4,1,28308,1,4,0)), v2c.Integer(threshold_val)),
-        (v2c.ObjectIdentifier((1,3,6,1,4,1,28308,1,2,0)), v2c.OctetString(email_val.encode('utf-8')))
+        (v2c.ObjectIdentifier((1,3,6,1,6,3,1,1,1,4,1,0)), v2c.ObjectIdentifier((1,3,6,1,4,1,28308,2,1))),
+        (v2c.ObjectIdentifier((1,3,6,1,4,1,28308,1,1,3,0)), v2c.Integer(cpu_val)),
+        (v2c.ObjectIdentifier((1,3,6,1,4,1,28308,1,1,4,0)), v2c.Integer(threshold_val)),
+        (v2c.ObjectIdentifier((1,3,6,1,4,1,28308,1,1,2,0)), v2c.OctetString(email_val.encode('utf-8')))
     ]
     
     try:
@@ -279,6 +364,7 @@ def send_trap(snmpEngine, store):
     send_email(email_val, cpu_val, threshold_val)
 
 
+
 def send_email(to_addr, cpu_val, threshold_val):
     print(f"{'='*70}")
     print(f"📧 ENVIANDO EMAIL [{get_timestamp()}]")
@@ -288,7 +374,6 @@ def send_email(to_addr, cpu_val, threshold_val):
     print(f"   Asunto: ⚠️ Alerta CPU: {cpu_val}%")
     
     try:
-        # Crear mensaje HTML con estilo visual
         html_body = f"""
 <!DOCTYPE html>
 <html>
@@ -425,7 +510,6 @@ def send_email(to_addr, cpu_val, threshold_val):
 </html>
 """
         
-        # Crear versión texto plano (fallback)
         text_body = f"""
 ╔══════════════════════════════════════════════════════════╗
 ║                  ⚠️  ALERTA DE CPU  ⚠️                   ║
@@ -466,7 +550,6 @@ supera el umbral definido.
 ══════════════════════════════════════════════════════════
 """
         
-        # Crear mensaje multipart (HTML + texto plano)
         from email.mime.multipart import MIMEMultipart
         from email.mime.text import MIMEText as MIMETextPart
         
@@ -475,11 +558,9 @@ supera el umbral definido.
         msg['From'] = GMAIL_USER
         msg['To'] = to_addr
         
-        # Adjuntar versión texto plano
         part1 = MIMETextPart(text_body, 'plain', 'utf-8')
         msg.attach(part1)
         
-        # Adjuntar versión HTML
         part2 = MIMETextPart(html_body, 'html', 'utf-8')
         msg.attach(part2)
         
@@ -493,6 +574,7 @@ supera el umbral definido.
         print(f"   ❌ Error al enviar email: {e}")
     
     print(f"{'='*70}\n")
+
 
 
 
@@ -514,7 +596,6 @@ def cpu_sampler(store, snmpEngine, stop_event):
         threshold = store.model["scalars"]["cpuThreshold"]["value"]
         over = cpu > threshold
         
-        # Mostrar estado del CPU
         status_icon = '⚠️ SUPERADO' if over else '✅ OK'
         print(f"[{get_timestamp()}] 🖥️  CPU: {cpu}% | Umbral: {threshold}% | {status_icon}")
         
@@ -525,33 +606,32 @@ def cpu_sampler(store, snmpEngine, stop_event):
         last_over = over
 
 
+
 def main():
     store = JsonStore(JSON_FILE)
     snmpEngine = engine.SnmpEngine()
     snmpContext = context.SnmpContext(snmpEngine)
     
-    # Setup transport
+    # Configurar referencia al snmpEngine en el store para VACM
+    store.snmpEngine = snmpEngine
+    
     config.addTransport(
         snmpEngine, 
         udp.domainName, 
         udp.UdpTransport().openServerMode(('0.0.0.0', 161))
     )
     
-    # Setup communities
     config.addV1System(snmpEngine, 'public-area', 'public')
     config.addV1System(snmpEngine, 'private-area', 'private')
     
-    # Setup VACM
     for secModel in (1, 2):
-        config.addVacmUser(snmpEngine, secModel, 'public-area', 'noAuthNoPriv', readSubTree=(1,3,6,1))
+        config.addVacmUser(snmpEngine, secModel, 'public-area', 'noAuthNoPriv', readSubTree=(1,3,6,1), writeSubTree=())
         config.addVacmUser(snmpEngine, secModel, 'private-area', 'noAuthNoPriv', readSubTree=(1,3,6,1), writeSubTree=(1,3,6,1))
     
-    # Setup trap target
     config.addTargetParams(snmpEngine, 'trap-target', 'public-area', 'noAuthNoPriv', 1)
     config.addTargetAddr(snmpEngine, 'trap-target', udp.domainName, ('127.0.0.1', 162), 'trap-target', tagList='trap')
     config.addNotificationTarget(snmpEngine, 'trap-target', 'trap-target', 'trap')
     
-    # Register custom responders
     JsonGet(snmpEngine, snmpContext, store)
     JsonGetNext(snmpEngine, snmpContext, store)
     JsonSet(snmpEngine, snmpContext, store)
@@ -577,12 +657,10 @@ def main():
     
     stop_event = threading.Event()
     
-    # Start CPU monitor
     cpu_thread = threading.Thread(target=cpu_sampler, args=(store, snmpEngine, stop_event))
     cpu_thread.daemon = True
     cpu_thread.start()
     
-    # Start dispatcher
     snmpEngine.transportDispatcher.jobStarted(1)
     
     try:
@@ -593,13 +671,14 @@ def main():
         print("="*70)
         stop_event.set()
         cpu_thread.join(timeout=2)
-        store._save()
+        store.save()
         print(f"   💾 Estado guardado en {JSON_FILE}")
         print(f"   🕐 Hora de cierre: {get_timestamp()}")
         print("="*70)
         print("\n👋 Agente detenido correctamente\n")
     finally:
         snmpEngine.transportDispatcher.closeDispatcher()
+
 
 
 if __name__ == '__main__':
