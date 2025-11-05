@@ -7,7 +7,7 @@
       "access": "read-write",
       "minlen": 1,
       "maxlen": 255,
-      "value": "TestManager"
+      "value": "Enrique y Ruben"
     },
     "managerEmail": {
       "oid": "1.3.6.1.4.1.28308.1.2.0",
@@ -15,7 +15,7 @@
       "access": "read-write",
       "minlen": 4,
       "maxlen": 255,
-      "value": "test@example.com"
+      "value": "871135@unizar.es"
     },
     "cpuUsage": {
       "oid": "1.3.6.1.4.1.28308.1.3.0",
@@ -23,7 +23,7 @@
       "access": "read-only",
       "minval": 0,
       "maxval": 100,
-      "value": 3
+      "value": 18
     },
     "cpuThreshold": {
       "oid": "1.3.6.1.4.1.28308.1.4.0",
@@ -31,7 +31,7 @@
       "access": "read-write",
       "minval": 0,
       "maxval": 100,
-      "value": 75
+      "value": 80
     }
   }
 }
