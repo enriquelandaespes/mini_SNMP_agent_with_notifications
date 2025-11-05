@@ -154,13 +154,7 @@ class JsonStore:
             return 7, 1
         
         return 0, 0
-
-
-
         
-
-
-    
     def commit_set(self, oid_tuple, snmp_val):
         key = self.oid_map[oid_tuple]
         old_value = self.model["scalars"][key]["value"]
