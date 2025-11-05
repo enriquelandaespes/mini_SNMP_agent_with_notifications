@@ -23,11 +23,9 @@ from pysnmp.proto import api
 JSON_FILE = "mib_state.json"
 AGENT_START = time.time()
 
-
 # Configuración de Gmail para envío de correos(Es el que envía a el correo del manager)
 GMAIL_USER = "fakeunizar@gmail.com"  
 GMAIL_PASSWORD = "ldwb lraj msnw smoo"  
-
 
 
 # JSONStore maneja la MIB almacenada en un archivo JSON, guardando y cargando el estado de las variables.
@@ -167,8 +165,6 @@ class JsonStore:
         self.model["scalars"]["cpuUsage"]["value"] = cpu_value
         self.save()
 
-
-
 def oid_to_string(oid):
     """Convert OID tuple/object to readable string"""
     if hasattr(oid, 'prettyPrint'):
@@ -180,8 +176,6 @@ def oid_to_string(oid):
 def get_timestamp():
     """Get formatted timestamp"""
     return time.strftime('%Y-%m-%d %H:%M:%S')
-
-
 
 # JSON responders - handle SNMP operations with detailed logging
 class JsonGet(cmdrsp.GetCommandResponder):
@@ -222,8 +216,6 @@ class JsonGet(cmdrsp.GetCommandResponder):
         print(f"   📤 Respuesta enviada correctamente")
         print(f"{'='*70}\n")
 
-
-
 class JsonGetNext(cmdrsp.NextCommandResponder):
     def __init__(self, snmpEngine, snmpContext, store):
         super().__init__(snmpEngine, snmpContext)
@@ -262,8 +254,6 @@ class JsonGetNext(cmdrsp.NextCommandResponder):
         
         print(f"   📤 Respuesta enviada correctamente")
         print(f"{'='*70}\n")
-
-
 
 class JsonSet(cmdrsp.SetCommandResponder):
     def __init__(self, snmpEngine, snmpContext, store):
@@ -356,8 +346,6 @@ def send_trap(snmpEngine, store):
     print(f"{'='*70}\n")
     
     send_email(email_val, cpu_val, threshold_val)
-
-
 
 def send_email(to_addr, cpu_val, threshold_val):
     print(f"{'='*70}")
@@ -569,9 +557,6 @@ supera el umbral definido.
     
     print(f"{'='*70}\n")
 
-
-
-
 def cpu_sampler(store, snmpEngine, stop_event):
     psutil.cpu_percent(interval=None)
     last_over = False
@@ -598,8 +583,6 @@ def cpu_sampler(store, snmpEngine, stop_event):
             send_trap(snmpEngine, store)
         
         last_over = over
-
-
 
 def main():
     store = JsonStore(JSON_FILE)
@@ -673,8 +656,5 @@ def main():
     finally:
         snmpEngine.transportDispatcher.closeDispatcher()
 
-
-
 if __name__ == '__main__':
     main()
-
