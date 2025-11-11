@@ -44,15 +44,15 @@ class JsonStore:
                 return json.load(f)
         
         return { # Modelo por defecto si no existe el archivo JSON
-            "baseoid": "1.3.6.1.4.1.28308.1.1",
+            "baseoid": "1.3.6.1.4.1.28308.1",
             "scalars": {
-                "manager": {"oid": "1.3.6.1.4.1.28308.1.1.1.0", "type": "DisplayString", 
+                "manager": {"oid": "1.3.6.1.4.1.28308.1.1.0", "type": "DisplayString", 
                            "access": "read-write", "value": "manager"},
-                "managerEmail": {"oid": "1.3.6.1.4.1.28308.1.1.2.0", "type": "DisplayString",
+                "managerEmail": {"oid": "1.3.6.1.4.1.28308.1.2.0", "type": "DisplayString",
                                 "access": "read-write", "value": "871135@unizar.es"},
-                "cpuUsage": {"oid": "1.3.6.1.4.1.28308.1.1.3.0", "type": "Integer32",
+                "cpuUsage": {"oid": "1.3.6.1.4.1.28308.1.3.0", "type": "Integer32",
                             "access": "read-only", "value": 10},
-                "cpuThreshold": {"oid": "1.3.6.1.4.1.28308.1.1.4.0", "type": "Integer32",
+                "cpuThreshold": {"oid": "1.3.6.1.4.1.28308.1.4.0", "type": "Integer32",
                                 "access": "read-write", "value": 80}
             }
         }
@@ -329,9 +329,9 @@ def send_trap(snmpEngine, store):
     varBinds = [
         (v2c.ObjectIdentifier((1,3,6,1,2,1,1,3,0)), v2c.TimeTicks(int((time.time()-AGENT_START)*100))),
         (v2c.ObjectIdentifier((1,3,6,1,6,3,1,1,1,4,1,0)), v2c.ObjectIdentifier((1,3,6,1,4,1,28308,2,1))),
-        (v2c.ObjectIdentifier((1,3,6,1,4,1,28308,1,1,3,0)), v2c.Integer(cpu_val)),
-        (v2c.ObjectIdentifier((1,3,6,1,4,1,28308,1,1,4,0)), v2c.Integer(threshold_val)),
-        (v2c.ObjectIdentifier((1,3,6,1,4,1,28308,1,1,2,0)), v2c.OctetString(email_val.encode('utf-8')))
+        (v2c.ObjectIdentifier((1,3,6,1,4,1,28308,1,3,0)), v2c.Integer(cpu_val)),
+        (v2c.ObjectIdentifier((1,3,6,1,4,1,28308,1,4,0)), v2c.Integer(threshold_val)),
+        (v2c.ObjectIdentifier((1,3,6,1,4,1,28308,1,2,0)), v2c.OctetString(email_val.encode('utf-8')))
     ]
     
     try:

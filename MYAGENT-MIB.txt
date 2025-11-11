@@ -23,7 +23,7 @@ myAgentMIB MODULE-IDENTITY
     REVISION        "202510270000Z"
     DESCRIPTION
         "Initial version of MYAGENT-MIB."
-    ::= { enterprises 28308 1 }
+    ::= { enterprises 28308 }
 
 -- Object subtrees
 

@@ -17,10 +17,10 @@ BASE_OID = "1.3.6.1.4.1.28308.1"
 
 # Object OIDs (CORREGIDOS)
 # Ahora generan: ...28308.1.1.0, ...28308.1.2.0, etc.
-OID_MANAGER = f"{BASE_OID}.1.1.0"
-OID_EMAIL = f"{BASE_OID}.1.2.0"
-OID_CPU_USAGE = f"{BASE_OID}.1.3.0"
-OID_CPU_THRESHOLD = f"{BASE_OID}.1.4.0"
+OID_MANAGER = f"{BASE_OID}.1.0"
+OID_EMAIL = f"{BASE_OID}.2.0"
+OID_CPU_USAGE = f"{BASE_OID}.3.0"
+OID_CPU_THRESHOLD = f"{BASE_OID}.4.0"
 # ------------------------------
 
 def print_header(title):
@@ -87,7 +87,7 @@ def check_snmp_tools():
     print_header("Verificando herramientas SNMP")
     
     SNMPGET = "C:\\usr\\bin\\snmpget.exe"  # <-- Ruta completa
-    cmd = [SNMPGET, "-v2c", "-c", "public", AGENT_IP, f"{BASE_OID}.1.1.0"]
+    cmd = [SNMPGET, "-v2c", "-c", "public", AGENT_IP, f"{BASE_OID}.1.0"]
     success, output, error = run_snmp_command(cmd)
     
     if success or "NET-SNMP" in output or "NET-SNMP" in error:
