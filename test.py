@@ -9,34 +9,29 @@ import time
 import sys
 import os
 
-# --- Configuración Global ---
+# Configuración Global 
 AGENT_IP = "127.0.0.1"  # IP por defecto, se preguntará al usuario
 COMMUNITY_RO = "public"
 COMMUNITY_RW = "private"
-BASE_OID = "1.3.6.1.4.1.28308.1"
+BASE_OID = "1.3.6.1.4.1.28308"
 
-# Object OIDs (CORREGIDOS)
-# Ahora generan: ...28308.1.1.0, ...28308.1.2.0, etc.
-OID_MANAGER = f"{BASE_OID}.1.0"
-OID_EMAIL = f"{BASE_OID}.2.0"
-OID_CPU_USAGE = f"{BASE_OID}.3.0"
-OID_CPU_THRESHOLD = f"{BASE_OID}.4.0"
-# ------------------------------
+# OIDs del Agente
+OID_MANAGER = f"{BASE_OID}.1.1.0"
+OID_EMAIL = f"{BASE_OID}.1.2.0"
+OID_CPU_USAGE = f"{BASE_OID}.1.3.0"
+OID_CPU_THRESHOLD = f"{BASE_OID}.1.4.0"
 
-def print_header(title):
-    """Imprime un encabezado de sección bonito"""
+def print_header(title): # Imprime un encabezado de sección bonito
     print(f"\n{'='*60}")
     print(f" {title.upper()} ")
     print(f"{'='*60}")
 
-def pause_for_next_test(test_name):
-    """Espera a que el usuario pulse ENTER para continuar"""
+def pause_for_next_test(test_name): # Espera a que el usuario pulse ENTER para continuar
     print(f"\n--- Preparado para el Test: {test_name} ---")
     print("Presiona ENTER para continuar...")
     input()
 
-def run_snmp_command(cmd):
-    """Ejecuta un comando SNMP y devuelve el resultado"""
+def run_snmp_command(cmd): # Ejecuta un comando SNMP y devuelve el resultado
     try:
         result = subprocess.run(
             cmd, 
@@ -46,29 +41,22 @@ def run_snmp_command(cmd):
             timeout=10,
             encoding='utf-8',
             errors='ignore'
-        )
-        return result.returncode == 0, result.stdout.strip(), result.stderr.strip()
+        ) # Ejecuta el comando con un timeout de 10 segundos
+        return result.returncode == 0, result.stdout.strip(), result.stderr.strip() # Devuelve éxito, salida y error
     except subprocess.TimeoutExpired:
         return False, "", "Timeout: La IP del agente no responde"
     except Exception as e:
         return False, "", str(e)
 
-def get_snmp_value(oid):
-    """Función helper para obtener solo el valor de un OID (CORREGIDA)"""
-    cmd = f"snmpget -v2c -c {COMMUNITY_RO} {AGENT_IP} {oid}"
-    success, output, error = run_snmp_command(cmd)
-    
-    # La salida de snmpget es: OID::... = TIPO: Valor
-    # Ej: SNMPv2-SMI::enterprises.28308.1.1.0 = STRING: "Ruben"
-    # Ej: SNMPv2-SMI::enterprises.28308.1.4.0 = INTEGER: 80
+def get_snmp_value(oid): # Función para obtener solo el valor de un OID
+    cmd = f"snmpget -v2c -c {COMMUNITY_RO} {AGENT_IP} {oid}" # Creamos el comando snmpget
+    success, output, error = run_snmp_command(cmd) # Ejecutamos el comando
     
     if success and output and ":" in output:
         try:
-            # Dividimos por el ÚLTIMO ':' para aislar el valor
-            value_part = output.rsplit(":", 1)[1].strip()
+            value_part = output.rsplit(":", 1)[1].strip() # Dividimos por el ÚLTIMO ':' para aislar el valor
             
-            # Quita las comillas si es un STRING
-            if value_part.startswith('"') and value_part.endswith('"'):
+            if value_part.startswith('"') and value_part.endswith('"'): # Quita las comillas si es un STRING
                 value_part = value_part[1:-1]
             
             return value_part
@@ -82,26 +70,24 @@ def get_snmp_value(oid):
         print(f"  (Error obteniendo valor: {error})")
         return None
 
-def check_snmp_tools():
-    """Check if snmpget is available"""
+def check_snmp_tools(): # Comprueba si snmpget está disponible
     print_header("Verificando herramientas SNMP")
     
-    SNMPGET = "C:\\usr\\bin\\snmpget.exe"  # <-- Ruta completa
-    cmd = [SNMPGET, "-v2c", "-c", "public", AGENT_IP, f"{BASE_OID}.1.0"]
+    SNMPGET = "C:\\usr\\bin\\snmpget.exe" 
+    cmd = [SNMPGET, "-v2c", "-c", "public", AGENT_IP, f"{BASE_OID}.1.1.0"]
     success, output, error = run_snmp_command(cmd)
     
-    if success or "NET-SNMP" in output or "NET-SNMP" in error:
+    if success or "NET-SNMP" in output or "NET-SNMP" in error: # Si responde o da error de net-snmp
         print("  ✓ net-snmp encontrado")
         return True
-    else:
+    else: # No encontrado
         print("  ✗ net-snmp NO encontrado")
         print("\n  Instala net-snmp para Windows desde:")
         print("  http://www.net-snmp.org/download.html")
         print("\n  O añade la ruta de net-snmp a PATH")
         return False
 
-def test_get_operations():
-    """Test 1: Operaciones GET básicas"""
+def test_get_operations(): # Test 1: Operaciones GET básicas
     print_header("TEST 1: Operaciones GET básicas")
     
     tests = [
@@ -109,36 +95,35 @@ def test_get_operations():
         ("Manager Email", OID_EMAIL),
         ("CPU Usage", OID_CPU_USAGE),
         ("CPU Threshold", OID_CPU_THRESHOLD)
-    ]
+    ] # Lista de tests con nombre y OID
     
     passed = 0
-    for name, oid in tests:
+    for name, oid in tests: # Iteramos sobre los tests
         cmd = f"snmpget -v2c -c {COMMUNITY_RO} {AGENT_IP} {oid}"
         success, output, error = run_snmp_command(cmd)
         
         if success and output and "No Such" not in output:
             print(f"  ✓ {name}: {output}")
-            passed += 1
+            passed += 1 # Contamos como pasado
         else:
             print(f"  ✗ {name}: FALLO")
             if error:
                 print(f"    Error: {error}")
     
     print(f"\n  Resultado: {passed}/{len(tests)} tests pasados")
-    return passed == len(tests)
+    return passed == len(tests) # Devuelve True si todos pasaron
 
-def test_getnext_operations():
-    """Test 2: Operaciones GETNEXT"""
+def test_getnext_operations(): # Test 2: Operaciones GETNEXT
     print_header("TEST 2: Operaciones GETNEXT (Walk manual)")
     
     current_oid = BASE_OID
     objects_found = []
     
-    for i in range(5): # Hacemos 5 saltos
+    for i in range(5): # Limitar a 5 saltos para evitar loops infinitos
         cmd = f"snmpgetnext -v2c -c {COMMUNITY_RO} {AGENT_IP} {current_oid}"
         success, output, error = run_snmp_command(cmd)
         
-        if success and output and "End of MIB" not in output:
+        if success and output and "End of MIB" not in output: # Si hay respuesta válida
             try:
                 # Extrae el OID de la respuesta para el siguiente salto
                 current_oid = output.split("=")[0].strip().split()[-1]
@@ -150,11 +135,10 @@ def test_getnext_operations():
         else:
             print(f"  ℹ Fin del MIB en paso {i+1}")
             break
-    print(f"\n  Objetos encontrados: {len(objects_found)} incluyendo el END of MIB")
-    return len(objects_found) >= 4
+    print(f"\n  Objetos encontrados: {len(objects_found)}")
+    return len(objects_found) >= 4 # Esperamos al menos 4 objetos
 
-def test_set_operations():
-    """Test 3: Operaciones SET (Escritura)"""
+def test_set_operations(): # Test 3: Operaciones SET (Escritura)
     print_header("TEST 3: Operaciones SET")
     
     new_manager = "Enrique"
@@ -165,10 +149,10 @@ def test_set_operations():
         ("Manager name", OID_MANAGER, "s", new_manager),
         ("Manager email", OID_EMAIL, "s", new_email),
         ("CPU Threshold", OID_CPU_THRESHOLD, "i", new_threshold)
-    ]
+    ] # Lista de tests con nombre, OID, tipo SNMP y nuevo valor
     
     passed = 0
-    for name, oid, snmp_type, value in tests:
+    for name, oid, snmp_type, value in tests: # Iteramos sobre los tests
         # 1. Operación SET
         cmd_set = f"snmpset -v2c -c {COMMUNITY_RW} {AGENT_IP} {oid} {snmp_type} \"{value}\""
         success, output, error = run_snmp_command(cmd_set)
@@ -180,7 +164,7 @@ def test_set_operations():
             
             if success_get and value in output_get:
                 print(f"  ✓ {name}: Modificado y verificado = {value}")
-                passed += 1
+                passed += 1 # Contamos como pasado
             else:
                 print(f"  ⚠ {name}: SET OK pero verificación falló. Respuesta: {output_get}")
         else:
@@ -189,29 +173,27 @@ def test_set_operations():
                 print(f"    Error: {error}")
     
     print(f"\n  Resultado: {passed}/{len(tests)} tests pasados")
-    return passed == len(tests)
+    return passed == len(tests) # Devuelve True si todos pasaron
 
-def test_walk_operation():
-    """Test 4: WALK del subárbol completo"""
+def test_walk_operation(): # Test 4: WALK del subárbol completo
     print_header("TEST 4: SNMP WALK del subárbol")
     
     cmd = f"snmpwalk -v2c -c {COMMUNITY_RO} {AGENT_IP} {BASE_OID}"
     success, output, error = run_snmp_command(cmd)
     
-    if success and output:
+    if success and output: # Si hay salida válida
         lines = output.strip().split('\n')
         print(f"  ✓ WALK exitoso: {len(lines)} objetos encontrados")
         for line in lines:
             print(f"    {line}")
-        return len(lines) >= 4
+        return len(lines) >= 4 # Esperamos al menos 4 objetos
     else:
         print(f"  ✗ WALK falló")
         if error:
             print(f"    Error: {error}")
-        return False
+        return False # Fallo en WALK
 
-def test_negative_cases():
-    """Test 5: Casos negativos (errores esperados)"""
+def test_negative_cases(): # Test 5: Casos negativos (errores esperados)
     print_header("TEST 5: Casos negativos (errores esperados)")
     passed = 0
 
@@ -221,7 +203,7 @@ def test_negative_cases():
     
     if not success_ro or "Error" in error_ro or "notWritable" in output_ro or "noAccess" in output_ro:
         print(f"  ✓ Escritura a objeto READ-ONLY (cpuUsage) bloqueada correctamente")
-        passed += 1
+        passed += 1 # Contamos como pasado
     else:
         print(f"  ✗ FALLO: Se ha permitido escribir en un objeto Read-Only (cpuUsage)")
 
@@ -231,21 +213,20 @@ def test_negative_cases():
     
     if not success_comm or "Error" in error_comm or "notWritable" in output_comm or "noAccess" in output_comm:
         print(f"  ✓ Escritura con comunidad READ-ONLY (public) bloqueada correctamente")
-        passed += 1
+        passed += 1 # Contamos como pasado
     else:
         print(f"  ✗ FALLO: Se ha permitido escribir con la comunidad 'public'")
 
     print(f"\n  Resultado: {passed}/2 tests pasados")
-    return passed == 2
+    return passed == 2 # Devuelve True si ambos pasaron
 
-def test_cpu_monitoring():
-    """Test 6: Monitoreo de CPU"""
+def test_cpu_monitoring(): # Test 6: Monitoreo de CPU (en tiempo real)
     print_header("TEST 6: Monitoreo de CPU (en tiempo real)")
     
     print("  Leyendo CPU 3 veces (intervalo de 5 segundos)...")
     
     valores = []
-    for i in range(3):
+    for i in range(3): # Leer 3 veces cada 5 segundos
         valor = get_snmp_value(OID_CPU_USAGE)
         if valor is not None:
             print(f"  Lectura {i+1}: {valor}%")
@@ -256,18 +237,17 @@ def test_cpu_monitoring():
         if i < 2:
             time.sleep(5)
     
-    if len(valores) == 3:
+    if len(valores) == 3: # Si se leyeron las 3 lecturas correctamente
         print(f"  ✓ Monitoreo activo completado")
         return True
     else:
         print(f"  ✗ Fallo en el monitoreo")
         return False
 
-def revert_changes(manager, email, threshold):
-    """Restaura los valores originales del agente"""
+def revert_changes(manager, email, threshold): # Restaura los valores originales del agente
     print_header("REVIRTIENDO CAMBIOS a los valores originales")
     
-    if manager is None or email is None or threshold is None:
+    if manager is None or email is None or threshold is None: # Si no se guardaron los originales
         print("  ✗ No se pudo revertir (valores originales no se guardaron).")
         print("  Reinicia el agente manualmente para restaurar valores.")
         return
@@ -287,15 +267,14 @@ def revert_changes(manager, email, threshold):
     success, out, _ = run_snmp_command(cmd_thr)
     print(f"  {'✓' if success else '✗'} Revertido Threshold a: {threshold}")
 
-def main():
-    """Ejecuta todos los tests de forma interactiva"""
+def main(): # Ejecuta todos los tests de forma interactiva
     global AGENT_IP # Declaramos que modificaremos la variable global
     
     print(f"\n╔{'═'*58}╗")
-    print(f"║ SUITE DE PRUEBAS INTERACTIVA - MINI AGENTE SNMP        ║")
+    print(f"║     SUITE DE PRUEBAS INTERACTIVA - MINI AGENTE SNMP      ║")
     print(f"╚{'═'*58}╝")
     
-    # --- 1. Pedir la IP ---
+    # 1. Pedir la IP del Agente
     print(f"\n--- Configuración del Agente ---")
     default_ip = "127.0.0.1"
     new_ip = input(f"Introduce la IP del agente (o ENTER para {default_ip}): ")
@@ -305,7 +284,7 @@ def main():
         AGENT_IP = default_ip
     print(f"  ✓ Usando IP del agente: {AGENT_IP}")
 
-    # --- 2. Comprobar Herramientas ---
+    # 2. Comprobar Herramientas SNMP
     if not check_snmp_tools():
         print("\n⚠ IMPORTANTE: Revisa el error de net-snmp.")
         sys.exit(1)
@@ -313,7 +292,7 @@ def main():
     print(f"\n⚠ IMPORTANTE: Asegúrate de que el agente está corriendo en {AGENT_IP}:")
     print(f"  python mini_agent(7.1.4).py")
     
-    # --- 3. Guardar Valores Originales ---
+    # 3. Guardar Valores Originales
     print_header("Guardando estado original del agente (para revertir)")
     original_manager = get_snmp_value(OID_MANAGER)
     original_email = get_snmp_value(OID_EMAIL)
@@ -329,7 +308,7 @@ def main():
         print(f"  ✓ Guardado Email: {original_email}")
         print(f"  ✓ Guardado Threshold: {original_threshold}")
 
-    # --- 4. Ejecutar Tests Interactivamente ---
+    # 4. Ejecutar Tests Interactivamente
     results = []
     
     pause_for_next_test("GET Operations")
@@ -350,7 +329,7 @@ def main():
     pause_for_next_test("CPU Monitoring (durará 15 seg)")
     results.append(("CPU Monitoring", test_cpu_monitoring()))
     
-    # --- 5. Resumen ---
+    # 5. Resultados
     print_header("RESUMEN DE RESULTADOS")
     passed = sum(1 for _, result in results if result)
     total = len(results)
@@ -366,7 +345,7 @@ def main():
     else:
         print(f"\n  ⚠ Revisa los tests fallidos arriba")
     
-    # --- 6. Revertir Cambios ---
+    # 6. Revertir Cambios
     revert_changes(original_manager, original_email, original_threshold)
     
     print(f"\nPresiona ENTER para salir...")

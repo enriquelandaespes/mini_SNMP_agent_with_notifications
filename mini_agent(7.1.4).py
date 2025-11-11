@@ -9,14 +9,11 @@ import time
 import threading
 import smtplib
 import keyboard
-from email.mime.text import MIMEText
 import psutil
 from pysnmp.entity import engine, config
 from pysnmp.entity.rfc3413 import cmdrsp, ntforg, context
 from pysnmp.carrier.asyncio.dgram import udp
 from pysnmp.proto.api import v2c
-from pysnmp.proto import rfc3411  # Para consultar VACM
-from pysnmp.proto import api
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText as MIMETextPart
 
