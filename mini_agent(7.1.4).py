@@ -9,6 +9,7 @@ import os
 import time
 import threading
 import smtplib
+import keyboard
 from email.mime.text import MIMEText
 import psutil
 from pysnmp.entity import engine, config
@@ -86,7 +87,6 @@ class JsonStore:
         3. Permisos de acceso del objeto (read-only vs read-write)
         4. Tipo de dato correcto
         """
-        
         # 1. VERIFICAR PERMISOS DE COMUNIDAD
         community = 'unknown'
         
@@ -94,17 +94,14 @@ class JsonStore:
             try:
                 # En PySNMP 7.x, stateReference es un int, buscar en observer
                 cache = self.snmpEngine.observer.getExecutionContext('rfc3412.receiveMessage:request')
-                
                 if cache and 'securityName' in cache:
-                    securityName = cache['securityName']
-                    
+                    securityName = cache['securityName'] 
                     # securityName es un objeto SnmpAdminString, extraer el valor
                     if hasattr(securityName, 'prettyPrint'):
                         community = securityName.prettyPrint()
                     elif hasattr(securityName, '__str__'):
                         community = str(securityName)
-                    else:
-                        # Último recurso: acceder directamente al payload
+                    else:    # Último recurso: acceder directamente al payload
                         community = str(securityName)
                     
                     print(f"   🔍 Comunidad detectada: '{community}'")
@@ -557,32 +554,51 @@ supera el umbral definido.
     
     print(f"{'='*70}\n")
 
+
 def cpu_sampler(store, snmpEngine, stop_event):
     psutil.cpu_percent(interval=None)
     last_over = False
+    show_output = False
     
     print(f"\n{'='*70}")
     print(f"🖥️  MONITOR DE CPU INICIADO [{get_timestamp()}]")
     print(f"{'='*70}")
-    print(f"   Intervalo de muestreo: 5 segundos")
+    print(f"   Pulsa 'r' para mostrar/ocultar salida por pantalla")
+    print(f"   Intervalo de muestreo: 5 segundos (siempre activo)")
     print(f"   Archivo de estado: {JSON_FILE}")
     print(f"{'='*70}\n")
     
+    def toggle_output():
+        nonlocal show_output
+        show_output = not show_output
+        estado = "VISIBLE" if show_output else "OCULTA"
+        print(f"\n[{get_timestamp()}] Salida por pantalla: {estado}\n")
+    
+    keyboard.add_hotkey('r', toggle_output)
+    
     while not stop_event.is_set():
         time.sleep(5)
+        
+        # Siempre muestrea y actualiza
         cpu = max(0, min(100, round(psutil.cpu_percent(interval=None))))
         store.set_cpu_usage_internal(cpu)
         threshold = store.model["scalars"]["cpuThreshold"]["value"]
         over = cpu > threshold
         
-        status_icon = '⚠️ SUPERADO' if over else '✅ OK'
-        print(f"[{get_timestamp()}] 🖥️  CPU: {cpu}% | Umbral: {threshold}% | {status_icon}")
+        # Solo muestra si show_output está activo
+        if show_output:
+            status_icon = '⚠️ SUPERADO' if over else '✅ OK'
+            print(f"[{get_timestamp()}] 🖥️  CPU: {cpu}% | Umbral: {threshold}% | {status_icon}")
         
         if over and not last_over:
-            print(f"\n⚠️⚠️⚠️  ALERTA: Umbral de CPU superado! ⚠️⚠️⚠️\n")
+            if show_output:
+                print(f"\n⚠️⚠️⚠️  ALERTA: Umbral de CPU superado! ⚠️⚠️⚠️\n")
             send_trap(snmpEngine, store)
         
         last_over = over
+    
+    keyboard.unhook_all()
+
 
 def main():
     store = JsonStore(JSON_FILE)
