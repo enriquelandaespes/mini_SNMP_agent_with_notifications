@@ -77,7 +77,7 @@ class JsonStore:
                 return True, candidate, self.get_exact(candidate)[1] # get_exact devuelve (ok, val) entonces usamos [1] para obtener val
         return False, None, None
     
-    def validate_set(self, oid_tuple, snmp_val, stateReference=None, contextName=''): # Validar una operación SET
+    def validate_set(self, oid, snmp_val, stateReference=None, contextName=''): # Validar una operación SET
         """
         Validación completa que incluye:
         1. Verificación de permisos de comunidad
@@ -128,7 +128,7 @@ class JsonStore:
         print(f"   ✅ PERMITIDO: Comunidad '{community}' autorizada para escritura") # Si no es publica y existe permitimos escritura (privada)
         
         # 2. Verificar que el OID existe
-        key = self.oid_map.get(oid_tuple)
+        key = self.oid_map.get(oid)
         if not key:
             return 18, 1 # Error: El OID es valido pero no existe en la MIB del agente
         
