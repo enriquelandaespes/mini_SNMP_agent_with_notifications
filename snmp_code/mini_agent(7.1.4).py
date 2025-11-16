@@ -3,6 +3,7 @@ Mini SNMP Agent with JSON MIB storage, CPU monitoring, traps, and email notifica
 This agent works on pysnmp 7.1.4
 """
 
+
 import json
 import os
 import time
@@ -10,6 +11,7 @@ import threading
 import smtplib
 import keyboard
 import psutil
+import asyncio  # <-- NUEVO: usaremos asyncio para el muestreo de CPU
 from pysnmp.entity import engine, config
 from pysnmp.entity.rfc3413 import cmdrsp, ntforg, context
 from pysnmp.carrier.asyncio.dgram import udp
@@ -18,13 +20,16 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText as MIMETextPart
 
 
+
 # Constantes iniciales
 JSON_FILE = "mib_state.json"
 AGENT_START = time.time()
 
+
 # Configuración de Gmail para envío de correos(Es el que envía a el correo del manager)
 GMAIL_USER = "fakeunizar@gmail.com"  
 GMAIL_PASSWORD = "ldwb lraj msnw smoo"  
+
 
 
 # JSONStore maneja la MIB almacenada en un archivo JSON, guardando y cargando el estado de las variables.
@@ -158,13 +163,16 @@ class JsonStore:
         self.model["scalars"]["cpuUsage"]["value"] = cpu_value
         self.save() # Guardar cambios en el archivo JSON
 
+
 def oid_to_string(oid): # Convierte la tupla/objeto OID en texto legible
     if hasattr(oid, 'prettyPrint'):
         return oid.prettyPrint()
     return '.'.join(str(x) for x in oid)
 
+
 def get_timestamp(): # Obtener timestamp
     return time.strftime('%Y-%m-%d %H:%M:%S')
+
 
 # Cada clase maneja un tipo de operación SNMP (GET, GETNEXT, SET) e interactúa con JsonStore haciendo un override de handleMgmtOperation
 class JsonGet(cmdrsp.GetCommandResponder):
@@ -205,6 +213,7 @@ class JsonGet(cmdrsp.GetCommandResponder):
         print(f"   📤 Respuesta enviada correctamente")
         print(f"{'='*70}\n")
 
+
 class JsonGetNext(cmdrsp.NextCommandResponder): 
     def __init__(self, snmpEngine, snmpContext, store): # Constructor de la clase JsonGetNext
         super().__init__(snmpEngine, snmpContext)
@@ -243,6 +252,7 @@ class JsonGetNext(cmdrsp.NextCommandResponder):
         
         print(f"   📤 Respuesta enviada correctamente")
         print(f"{'='*70}\n")
+
 
 class JsonSet(cmdrsp.SetCommandResponder):
     def __init__(self, snmpEngine, snmpContext, store): # Constructor de la clase JsonSet
@@ -304,6 +314,7 @@ class JsonSet(cmdrsp.SetCommandResponder):
         print(f"   💾 Cambios guardados en {JSON_FILE}")
         print(f"{'='*70}\n")
 
+
 def send_trap(snmpEngine, store): # Enviar una TRAP SNMP y un email cuando se supera el umbral de CPU
     ntfOrg = ntforg.NotificationOriginator() 
     cpu_val = store.model["scalars"]["cpuUsage"]["value"]
@@ -333,6 +344,7 @@ def send_trap(snmpEngine, store): # Enviar una TRAP SNMP y un email cuando se su
     print(f"{'='*70}\n")
     
     send_email(email_val, cpu_val, threshold_val) # Llama a la funcion de enviar email de alerta
+
 
 def send_email(to_addr, cpu_val, threshold_val): # Enviar un email de alerta cuando se supera el umbral de CPU
     print(f"{'='*70}")
@@ -484,37 +496,50 @@ def send_email(to_addr, cpu_val, threshold_val): # Enviar un email de alerta cua
 ║                  ⚠️  ALERTA DE CPU  ⚠️                   ║
 ╚══════════════════════════════════════════════════════════╝
 
+
 🚨 UMBRAL SUPERADO 🚨
+
 
 El uso de CPU ha excedido el límite configurado.
 
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 
 💻 Uso de CPU Actual
    ╰─► {cpu_val}%
 
+
 📊 Umbral Configurado
    ╰─► {threshold_val}%
+
 
 🕐 Fecha y Hora
    ╰─► {time.strftime('%d/%m/%Y - %H:%M:%S')}
 
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 
 ℹ️  INFORMACIÓN
 
+
 Esta alerta se genera automáticamente cuando el uso de CPU
 supera el umbral definido.
+
 
 ⚡ Acción recomendada:
    Verificar procesos y servicios que puedan estar
    consumiendo recursos excesivos.
 
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 
 🖥️  Mini SNMP Agent - Network Management
 📧 Notificación automática del sistema
 🆔 Agente OID: 1.3.6.1.4.1.28308
+
 
 ══════════════════════════════════════════════════════════
 """
@@ -541,7 +566,8 @@ supera el umbral definido.
     
     print(f"{'='*70}\n")
 
-def cpu_sampler(store, snmpEngine, stop_event): # Hilo para muestrear el uso de CPU y enviar alertas
+
+async def cpu_sampler(store, snmpEngine, stop_event): # Hilo para muestrear el uso de CPU y enviar alertas
     psutil.cpu_percent(interval=None) # Obtenemos un valor inicial usando a psutil
     last_over = False
     show_output = False
@@ -562,28 +588,29 @@ def cpu_sampler(store, snmpEngine, stop_event): # Hilo para muestrear el uso de 
     
     keyboard.add_hotkey('r', toggle_output) # Registrar la tecla 'r' para alternar la salida
     
-    while not stop_event.is_set(): # Bucle principal del muestreador de CPU
-        time.sleep(5)
-        
-        # Siempre muestrea y actualiza
-        cpu = max(0, min(100, round(psutil.cpu_percent(interval=None)))) # Obtener uso de CPU entre 0 y 100%
-        store.set_cpu_usage_internal(cpu)
-        threshold = store.model["scalars"]["cpuThreshold"]["value"]
-        over = cpu > threshold # Verificar si se supera el umbral
-        
-        # Solo muestra si show_output está activo (alternado con 'r')
-        if show_output:
-            status_icon = '⚠️ SUPERADO' if over else '✅ OK'
-            print(f"[{get_timestamp()}] 🖥️  CPU: {cpu}% | Umbral: {threshold}% | {status_icon}")
-        
-        if over and not last_over: # Solo se envia alerta solo cuando se supera el umbral no cada vez que detecta que está por encima
+    try:
+        while not stop_event.is_set(): # Bucle principal del muestreador de CPU
+            await asyncio.sleep(5)  # Usamos asyncio para dormir sin bloquear
+            # Siempre muestrea y actualiza
+            cpu = max(0, min(100, round(psutil.cpu_percent(interval=None)))) # Obtener uso de CPU entre 0 y 100%
+            store.set_cpu_usage_internal(cpu)
+            threshold = store.model["scalars"]["cpuThreshold"]["value"]
+            over = cpu > threshold # Verificar si se supera el umbral
+            
+            # Solo muestra si show_output está activo (alternado con 'r')
             if show_output:
-                print(f"\n⚠️⚠️⚠️  ALERTA: Umbral de CPU superado! ⚠️⚠️⚠️\n")
-            send_trap(snmpEngine, store)
-        
-        last_over = over # Actualizar estado de sobrepaso
-    
-    keyboard.unhook_all() # Limpiar hotkeys al detener el hilo
+                status_icon = '⚠️ SUPERADO' if over else '✅ OK'
+                print(f"[{get_timestamp()}] 🖥️  CPU: {cpu}% | Umbral: {threshold}% | {status_icon}")
+            
+            if over and not last_over: # Solo se envia alerta solo cuando se supera el umbral no cada vez que detecta que está por encima
+                if show_output:
+                    print(f"\n⚠️⚠️⚠️  ALERTA: Umbral de CPU superado! ⚠️⚠️⚠️\n")
+                send_trap(snmpEngine, store)
+            
+            last_over = over # Actualizar estado de sobrepaso
+    finally:
+        keyboard.unhook_all() # Limpiar hotkeys al detener el hilo
+
 
 
 def main(): # Función principal para iniciar el agente SNMP
@@ -638,9 +665,20 @@ def main(): # Función principal para iniciar el agente SNMP
     
     stop_event = threading.Event() # Evento para detener el Agente con el ctrl+c
     
-    cpu_thread = threading.Thread(target=cpu_sampler, args=(store, snmpEngine, stop_event)) # Hilo para muestrear CPU
+    # Hilo para ejecutar el muestreador de CPU basado en asyncio
+    loop = asyncio.new_event_loop()
+    
+    def run_cpu_monitor():
+        asyncio.set_event_loop(loop)
+        try:
+            # Ejecuta la corrutina cpu_sampler hasta que stop_event se active
+            loop.run_until_complete(cpu_sampler(store, snmpEngine, stop_event))
+        finally:
+            loop.close()
+    
+    cpu_thread = threading.Thread(target=run_cpu_monitor) # Hilo para muestrear CPU
     cpu_thread.daemon = True # Hilo de fondo. No bloquea la salida del programa
-    cpu_thread.start() # Iniciar hilo de muestreo de CPU
+    cpu_thread.start() # Iniciar hilo de muestreo de CPU basado en asyncio
     
     snmpEngine.transportDispatcher.jobStarted(1) # Iniciar el despachador SNMP
     
@@ -659,6 +697,7 @@ def main(): # Función principal para iniciar el agente SNMP
         print("\n👋 Agente detenido correctamente\n")
     finally:
         snmpEngine.transportDispatcher.closeDispatcher() # Cerrar el despachador SNMP
+
 
 if __name__ == '__main__':
     main()
