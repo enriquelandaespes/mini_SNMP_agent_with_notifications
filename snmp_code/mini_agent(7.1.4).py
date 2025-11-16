@@ -63,17 +63,17 @@ class JsonStore:
         return {tuple(int(x) for x in obj["oid"].split('.')): key 
                 for key, obj in self.model["scalars"].items()}
     
-    def get_exact(self, oid_tuple): # Obtener el valor exacto para un OID dado
-        key = self.oid_map.get(oid_tuple)
-        if not key:
+    def get_exact(self, oid): # Obtener el valor exacto para un OID dado
+        nombre_objeto = self.oid_map.get(oid)
+        if not nombre_objeto:
             return False, v2c.NoSuchObject() # v2c es para usar pysnmp
-        obj = self.model["scalars"][key]
+        obj = self.model["scalars"][nombre_objeto]
         val = v2c.OctetString(str(obj["value"]).encode('utf-8')) if obj["type"] == "DisplayString" else v2c.Integer(obj["value"])
         return True, val
     
-    def get_next(self, oid_tuple): # Obtener el siguiente OID y su valor
+    def get_next(self, oid): # Obtener el siguiente OID y su valor
         for candidate in self.sorted_oids:
-            if candidate > oid_tuple:
+            if candidate > oid:
                 return True, candidate, self.get_exact(candidate)[1] # get_exact devuelve (ok, val) entonces usamos [1] para obtener val
         return False, None, None
     
@@ -146,8 +146,8 @@ class JsonStore:
         
         return 0, 0 # Sin error
         
-    def commit_set(self, oid_tuple, snmp_val): # Aplicar el cambio para una operación SET validada
-        key = self.oid_map[oid_tuple]
+    def commit_set(self, oid, snmp_val): # Aplicar el cambio para una operación SET validada
+        key = self.oid_map[oid]
         old_value = self.model["scalars"][key]["value"]
         new_value = str(snmp_val) if self.model["scalars"][key]["type"] == "DisplayString" else int(snmp_val)
         self.model["scalars"][key]["value"] = new_value
