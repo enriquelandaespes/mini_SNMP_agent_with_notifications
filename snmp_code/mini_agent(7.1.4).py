@@ -128,11 +128,11 @@ class JsonStore:
         print(f"   ✅ PERMITIDO: Comunidad '{community}' autorizada para escritura") # Si no es publica y existe permitimos escritura (privada)
         
         # 2. Verificar que el OID existe
-        key = self.oid_map.get(oid)
-        if not key:
+        nombre_objeto = self.oid_map.get(oid)
+        if not nombre_objeto:
             return 18, 1 # Error: El OID es valido pero no existe en la MIB del agente
         
-        obj = self.model["scalars"][key] # Como el OID es valido obtenemos el objeto
+        obj = self.model["scalars"][nombre_objeto] # Como el OID es valido obtenemos el objeto
         
         # 3. Verificar permisos de acceso del objeto
         if obj["access"] == "read-only":
@@ -147,10 +147,10 @@ class JsonStore:
         return 0, 0 # Sin error
         
     def commit_set(self, oid, snmp_val): # Aplicar el cambio para una operación SET validada
-        key = self.oid_map[oid]
-        old_value = self.model["scalars"][key]["value"]
-        new_value = str(snmp_val) if self.model["scalars"][key]["type"] == "DisplayString" else int(snmp_val)
-        self.model["scalars"][key]["value"] = new_value
+        nombre_objeto = self.oid_map[oid]
+        old_value = self.model["scalars"][nombre_objeto]["value"]
+        new_value = str(snmp_val) if self.model["scalars"][nombre_objeto]["type"] == "DisplayString" else int(snmp_val)
+        self.model["scalars"][nombre_objeto]["value"] = new_value
         self.save() # Guardar cambios en el archivo JSON
         return old_value, new_value
     
@@ -185,10 +185,10 @@ class JsonGet(cmdrsp.GetCommandResponder):
             ok, val = self.store.get_exact(tuple(oid))
             
             if ok: # Si se encontró el OID
-                key = self.store.oid_map.get(tuple(oid), "unknown") # Obtener el nombre de la variable
+                nombre_objeto = self.store.oid_map.get(tuple(oid), "unknown") # Obtener el nombre de la variable
                 value_str = str(val) if hasattr(val, '__str__') else repr(val) # Convertir valor a string 
                 print(f"   OID: {oid_str}")
-                print(f"   Variable: {key}")
+                print(f"   Variable: {nombre_objeto}")
                 print(f"   Valor: {value_str}")
                 print(f"   ✅ Encontrado")
             else:
@@ -226,10 +226,10 @@ class JsonGetNext(cmdrsp.NextCommandResponder):
             
             if ok: # Si se encontró un siguiente OID
                 next_oid_str = oid_to_string(next_oid)
-                key = self.store.oid_map.get(next_oid, "unknown")
+                nombre_objeto = self.store.oid_map.get(next_oid, "unknown")
                 value_str = str(val) if hasattr(val, '__str__') else repr(val) # Convertir valor a string
                 print(f"   ➡️  Siguiente OID: {next_oid_str}")
-                print(f"   Variable: {key}")
+                print(f"   Variable: {nombre_objeto}")
                 print(f"   Valor: {value_str}")
                 print(f"   ✅ Encontrado")
                 rsp.append((v2c.ObjectIdentifier(next_oid), val)) # Construir la respuesta
@@ -259,13 +259,13 @@ class JsonSet(cmdrsp.SetCommandResponder):
         # Validate all OIDs first
         for idx, (oid, val) in enumerate(req, start=1): # Validar todos los OIDs primero
             oid_str = oid_to_string(oid)
-            key = self.store.oid_map.get(tuple(oid), "unknown") # Obtener el nombre de la variable
+            nombre_objeto = self.store.oid_map.get(tuple(oid), "unknown") # Obtener el nombre de la variable
             
             # Pasar stateReference para que validate_set pueda verificar comunidad
             errStatus, _ = self.store.validate_set(tuple(oid), val, stateReference, contextName)
             
             print(f"   OID: {oid_str}")
-            print(f"   Variable: {key}")
+            print(f"   Variable: {nombre_objeto}")
             print(f"   Nuevo valor: {val}")
             
             if errStatus: # Si hay un error, enviar respuesta de error inmediatamente
@@ -291,9 +291,9 @@ class JsonSet(cmdrsp.SetCommandResponder):
         
         for oid, val in req: # Aplicar los cambios
             oid_str = oid_to_string(oid)
-            key = self.store.oid_map.get(tuple(oid), "unknown")
+            nombre_objeto = self.store.oid_map.get(tuple(oid), "unknown")
             old_value, new_value = self.store.commit_set(tuple(oid), val) # Aplicar el cambio
-            print(f"   📝 {key}: {old_value} → {new_value}")
+            print(f"   📝 {nombre_objeto}: {old_value} → {new_value}")
         
         rsp = [(oid, self.store.get_exact(tuple(oid))[1]) for oid, _ in req] # Construir la respuesta con los nuevos valores
         rspPDU = v2c.apiPDU.getResponse(PDU)
